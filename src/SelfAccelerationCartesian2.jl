@@ -1,14 +1,14 @@
 #= 
 
-    In this module we write the analytic expressions for computing the self-force from the high order derivatives of the multipole moments and the position, velocity and acceleration in harmonic coordinates. 
+    In this module we write the analytic expressions for computing the self-force from the high order derivatives of the multipole moments and the position, velocity and acceleration in Cartesian coordinates. 
     See Eqs. 54-56, 57, 61-63, and A1-A14 in arXiv:1109.0572v2. Note that our implemenation of Eqs. A12 - A14 differ slightly by factors of 2 in places and symmetrization operators.
 
 =#
 
-module SelfAccelerationHarmonic
+module SelfAccelerationCartesian2
 using LinearAlgebra
 using Combinatorics
-using ..HarmonicCoords
+using ..CartesianCoords
 using StaticArrays
 using ..RRPotentials
 import ..Kerr.KerrMetric: g_μν, Γαμν
@@ -16,13 +16,13 @@ import ..Kerr.KerrMetric: g_μν, Γαμν
 """
 # Common Arguments in this module
 - `xBL::AbstractVector{Float64}`: Boyer-Lindquist coordinates, xBL = [r, θ, ϕ].
-- `xH::AbstractVector{Float64}`: Harmonic coordinates, xH = [x, y, z].
-- `vH::AbstractArray`: velocity in Harmonic coordinates.
+- `xH::AbstractVector{Float64}`: Cartesian coordinates, xH = [x, y, z].
+- `vH::AbstractArray`: velocity in Cartesian coordinates.
 - `v::Float64`: velocity v = sqrt(vx^2 + vy^2 + vz^2).
-- `aH::AbstractArray`: acceleration in Harmonic coordinates.
+- `aH::AbstractArray`: acceleration in Cartesian coordinates.
 - `rH::Float64`: rH = sqrt(xH^2 + yH^2 + zH^2).
-- `jBLH::AbstractArray`: Jacobian of the transformation from BL to Harmonic coordinates.
-- `HessBLH::AbstractArray`: Hessian of the transformation from BL to Harmonic coordinates.
+- `jBLH::AbstractArray`: Jacobian of the transformation from BL to Cartesian coordinates.
+- `HessBLH::AbstractArray`: Hessian of the transformation from BL to Cartesian coordinates.
 - `Mij5::AbstractArray`: fifth derivative of the mass quadrupole (Eq. 48).
 - `Mij6::AbstractArray`: sixth derivative of the mass quadrupole (Eq. 48).
 - `Mij7::AbstractArray`: seventh derivative of the mass quadrupole (Eq. 48).
@@ -32,16 +32,16 @@ import ..Kerr.KerrMetric: g_μν, Γαμν
 - `Sij5::AbstractArray`: fifth derivative of the current quadrupole (Eq. 49).
 - `Sij6::AbstractArray`: sixth derivative of the current quadrupole (Eq. 49).
 - `∂Vrr_∂t::Float64`: time derivative of the radiation reaction potential (Eq. 44).
-- `∂Vrr_∂a::AbstractVector{Float64}`: radiation reaction potential derivative with respect to the harmonic spatial coordinates.
+- `∂Vrr_∂a::AbstractVector{Float64}`: radiation reaction potential derivative with respect to the Cartesian spatial coordinates.
 - `∂Virr_∂t::AbstractVector{Float64}`: time derivative of the spatial components of the radiation reaction potential (Eq. 45).
-- `∂Virr_∂a::AbstractArray`: spatial radiation reaction potential derivatives with respect to the harmonic spatial coordinates.
-- `∂K_∂xk::AbstractVector{Float64}`: partial derivative of "Kerr potential" K with respect to the harmonic spatial coordinates (Eqs. 54-56, A12-A14).
-- `∂Ki_∂xk::AbstractArray`: partial derivative of "Kerr potential" K_i with respect to the harmonic spatial coordinates (Eqs. 54-56, A12-A14).
-- `∂Kij_∂xk::AbstractArray`: partial derivative of "Kerr potential" K_ij with respect to the harmonic spatial coordinates (Eqs. 54-56, A12-A14).
+- `∂Virr_∂a::AbstractArray`: spatial radiation reaction potential derivatives with respect to the Cartesian spatial coordinates.
+- `∂K_∂xk::AbstractVector{Float64}`: partial derivative of "Kerr potential" K with respect to the Cartesian spatial coordinates (Eqs. 54-56, A12-A14).
+- `∂Ki_∂xk::AbstractArray`: partial derivative of "Kerr potential" K_i with respect to the Cartesian spatial coordinates (Eqs. 54-56, A12-A14).
+- `∂Kij_∂xk::AbstractArray`: partial derivative of "Kerr potential" K_ij with respect to the Cartesian spatial coordinates (Eqs. 54-56, A12-A14).
 - `Q::Float64`: Kerr potential tt component (Eq. 54).
 - `Qi::AbstractVector{Float64}`: Kerr potential ti components (Eq. 55).
 - `Qij::AbstractArray`: Kerr potential ij (spatial) components (Eq. 56).
-- `aSF_H::AbstractArray`: self-acceleration (Eq. 57) in Harmonic coordinates.
+- `aSF_H::AbstractArray`: self-acceleration (Eq. 57) in Cartesian coordinates.
 - `aSF_BL::AbstractArray`: self-acceleration in Boyer-Lindquist coordinates.
 - `a::Float64`: Kerr black hole spin parameter.
 """
@@ -61,16 +61,16 @@ const ηij = [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0]    # spatial part of minkow
 δ(x::Int, y::Int)::Int = x == y ? 1 : 0
 
 # define vector and scalar potentials for self-force calculation - underscore denotes covariant indices
-K(xH::AbstractArray, a::Float64) = HarmonicCoords.g_tt_H(xH, a) + 1.0                         # outputs K00 (Eq. 54)
-K_i(xH::AbstractArray, a::Float64) = HarmonicCoords.g_tr_H(xH, a)                             # outputs Ki vector, i.e., Ki for i ∈ {1, 2, 3} (Eq. 55)
-K_ij(xH::AbstractArray, a::Float64) = HarmonicCoords.g_rr_H(xH, a) - ηij                      # outputs Kij matrix (Eq. 56)
-K_μν(xH::AbstractArray, a::Float64) = HarmonicCoords.g_μν_H(xH, a) - ημν                      # outputs Kμν matrix
-Q(xH::AbstractArray, a::Float64) = HarmonicCoords.gTT_H(xH, a) + 1.0                          # outputs Q^00 (Eq. 54)
-Qi(xH::AbstractArray, a::Float64) = HarmonicCoords.gTR_H(xH, a)                               # outputs Q^i vector, i.e., Q^i for i ∈ {1, 2, 3} (Eq. 55)
-Qij(xH::AbstractArray, a::Float64) = HarmonicCoords.gRR_H(xH, a) - ηij                        # outputs diagonal of Q^ij matrix (Eq. 56)
-Qμν(xH::AbstractArray, a::Float64) = HarmonicCoords.gμν_H(xH, a) - ημν                        # outputs Qμν matrix
+K(xH::AbstractArray, a::Float64) = CartesianCoords.g_tt_H(xH, a) + 1.0                         # outputs K00 (Eq. 54)
+K_i(xH::AbstractArray, a::Float64) = CartesianCoords.g_tr_H(xH, a)                             # outputs Ki vector, i.e., Ki for i ∈ {1, 2, 3} (Eq. 55)
+K_ij(xH::AbstractArray, a::Float64) = CartesianCoords.g_rr_H(xH, a) - ηij                      # outputs Kij matrix (Eq. 56)
+K_μν(xH::AbstractArray, a::Float64) = CartesianCoords.g_μν_H(xH, a) - ημν                      # outputs Kμν matrix
+Q(xH::AbstractArray, a::Float64) = CartesianCoords.gTT_H(xH, a) + 1.0                          # outputs Q^00 (Eq. 54)
+Qi(xH::AbstractArray, a::Float64) = CartesianCoords.gTR_H(xH, a)                               # outputs Q^i vector, i.e., Q^i for i ∈ {1, 2, 3} (Eq. 55)
+Qij(xH::AbstractArray, a::Float64) = CartesianCoords.gRR_H(xH, a) - ηij                        # outputs diagonal of Q^ij matrix (Eq. 56)
+Qμν(xH::AbstractArray, a::Float64) = CartesianCoords.gμν_H(xH, a) - ημν                        # outputs Qμν matrix
 
-# define partial derivatives of K (in harmonic coordinates)
+# define partial derivatives of K (in Cartesian coordinates)
 # ∂ₖK: outputs float
 function ∂K_∂xk(xH::AbstractArray, xBL::AbstractArray, jBLH::AbstractArray, HessBLH::AbstractArray, a::Float64, k::Int)   # Eq. A12
     ∂K=0.0
@@ -109,7 +109,7 @@ function ∂Kij_∂xk(xH::AbstractArray, rH::Float64, xBL::AbstractArray, jBLH::
 end
 
 # define relativistic Γ factor
-Γ(vH::AbstractArray, xH::AbstractArray, a::Float64) = 1.0 / sqrt(1.0 - SelfAccelerationHarmonic.norm2_3d(vH) - K(xH, a) - 2.0 * dot(K_i(xH, a), vH) - transpose(vH) * K_ij(xH, a) * vH)   # Eq. A3
+Γ(vH::AbstractArray, xH::AbstractArray, a::Float64) = 1.0 / sqrt(1.0 - SelfAccelerationCartesian2.norm2_3d(vH) - K(xH, a) - 2.0 * dot(K_i(xH, a), vH) - transpose(vH) * K_ij(xH, a) * vH)   # Eq. A3
 
 # define projection operator
 Pαβ(vH::AbstractArray, xH::AbstractArray, a::Float64) = ημν + Qμν(xH, a) + Γ(vH, xH, a)^2 * otimes(vcat([1], vH))   # contravariant, Eq. A1
@@ -200,41 +200,16 @@ function Di_RR(vH::AbstractArray, ∂Ki_∂xk::SMatrix{3, 3, Float64}, ∂Kij_�
     return D
 end
 
-
-# computes the four self-acceleration components A^{2}_{β} (Eqs. 62 - 63)
-function compute_BCD(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Float64, a::Float64)
-    jBLH = HarmonicCoords.jBLH(xH, a)
-    HessBLH = [HarmonicCoords.HessBLH(xH, rH, a, m) for m=1:3]
-    ∂K_∂xk = @SVector [SelfAccelerationHarmonic.∂K_∂xk(xH, xBL, jBLH, HessBLH, a, j) for j=1:3];
-    ∂Ki_∂xk = @SMatrix [SelfAccelerationHarmonic.∂Ki_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k) for j=1:3, k=1:3];
-    ∂Kij_∂xk = @SArray [SelfAccelerationHarmonic.∂Kij_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k, l) for j=1:3, k=1:3, l=1:3]
-    Q = SelfAccelerationHarmonic.Q(xH, a)
-    Qi = SelfAccelerationHarmonic.Qi(xH, a)
-    Qij = SelfAccelerationHarmonic.Qij(xH, a)
-
-    BRR = B_RR(Qi, ∂K_∂xk)
-    BiRR = Bi_RR(Qij, ∂K_∂xk)
-
-    CRR = C_RR(vH, ∂K_∂xk, ∂Ki_∂xk, Q, Qi)
-    CiRR = Ci_RR(vH, ∂K_∂xk, ∂Ki_∂xk, Qi, Qij)
-
-    DRR = D_RR(vH, ∂Ki_∂xk, ∂Kij_∂xk, Q, Qi)
-    DiRR = Di_RR(vH, ∂Ki_∂xk, ∂Kij_∂xk, Qi, Qij)
-
-    sum_terms = (BRR + CRR + DRR, BiRR + CiRR + DiRR)
-    return sum_terms
-end
-
 # computes the four self-acceleration components A^{2}_{β} (Eqs. 62 - 63)
 function A2_β(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Float64, a::Float64, VRR::Float64, ViRR::MVector{3, Float64})
-    jBLH = HarmonicCoords.jBLH(xH, a)
-    HessBLH = [HarmonicCoords.HessBLH(xH, rH, a, m) for m=1:3]
-    ∂K_∂xk = @SVector [SelfAccelerationHarmonic.∂K_∂xk(xH, xBL, jBLH, HessBLH, a, j) for j=1:3];
-    ∂Ki_∂xk = @SMatrix [SelfAccelerationHarmonic.∂Ki_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k) for j=1:3, k=1:3];
-    ∂Kij_∂xk = @SArray [SelfAccelerationHarmonic.∂Kij_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k, l) for j=1:3, k=1:3, l=1:3]
-    Q = SelfAccelerationHarmonic.Q(xH, a)
-    Qi = SelfAccelerationHarmonic.Qi(xH, a)
-    Qij = SelfAccelerationHarmonic.Qij(xH, a)
+    jBLH = CartesianCoords.jBLH(xH, a)
+    HessBLH = [CartesianCoords.HessBLH(xH, rH, a, m) for m=1:3]
+    ∂K_∂xk = @SVector [SelfAccelerationCartesian2.∂K_∂xk(xH, xBL, jBLH, HessBLH, a, j) for j=1:3];
+    ∂Ki_∂xk = @SMatrix [SelfAccelerationCartesian2.∂Ki_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k) for j=1:3, k=1:3];
+    ∂Kij_∂xk = @SArray [SelfAccelerationCartesian2.∂Kij_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k, l) for j=1:3, k=1:3, l=1:3]
+    Q = SelfAccelerationCartesian2.Q(xH, a)
+    Qi = SelfAccelerationCartesian2.Qi(xH, a)
+    Qij = SelfAccelerationCartesian2.Qij(xH, a)
 
     BRR = B_RR(Qi, ∂K_∂xk)
     BiRR = Bi_RR(Qij, ∂K_∂xk)
@@ -251,11 +226,11 @@ function A2_β(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Flo
     return vcat(A2_t, A2_i)
 end
 
-# compute self-acceleration in harmonic coordinates and transform components back to BL
+# compute self-acceleration in Cartesian coordinates and transform components back to BL
 function aRRα(aSF_H::AbstractVector{Float64}, aSF_BL::AbstractVector{Float64}, xH::AbstractVector{Float64}, v::Float64, vH::AbstractVector{Float64}, xBL::AbstractVector{Float64}, rH::Float64, a::Float64, Vrr::Float64, ∂Vrr_∂t::Float64, Virr::MVector{3, Float64}, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂t::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64, 9})
-    aSF_H[:] = -Γ(vH, xH, a)^2 * Pαβ(vH, xH, a) * (A1_β(v, vH, ∂Vrr_∂t, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a) + A2_β(xH, vH, xBL, rH, a, Vrr, Virr))
+    aSF_H[:] = -Γ(vH, xH, a)^2 * CartesianCoords.gμν_H(xH, a) * (A1_β(v, vH, ∂Vrr_∂t, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a) - A2_β(xH, vH, xBL, rH, a, Vrr, Virr))
     aSF_BL[1] = aSF_H[1]
-    aSF_BL[2:4] = HarmonicCoords.aHtoBL(xH, zeros(3), aSF_H[2:4], a)
+    aSF_BL[2:4] = CartesianCoords.aHtoBL(xH, zeros(3), aSF_H[2:4], a)
 end
 
 end

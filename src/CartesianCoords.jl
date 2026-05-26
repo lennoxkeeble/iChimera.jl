@@ -96,7 +96,7 @@ r(xH)::Float64 = sqrt(xH[1]^2 + xH[2]^2 + xH[3]^2)
 ∂yH_∂xBL(xH::AbstractVector{Float64}, a::Float64) = @SArray [∂yH_∂r(xH, a), ∂yH_∂θ(xH, a), ∂yH_∂ϕ(xH, a)]
 
 ∂zH_∂r(xH::AbstractVector{Float64}, a::Float64) = cosTheta(xH)
-∂zH_∂θ(xH::AbstractVector{Float64}, a::Float64) = r(xH) * sinTheta(xH)
+∂zH_∂θ(xH::AbstractVector{Float64}, a::Float64) = -r(xH) * sinTheta(xH)
 ∂zH_∂ϕ(xH::AbstractVector{Float64}, a::Float64) = 0.0
 ∂zH_∂xBL(xH::AbstractVector{Float64}, a::Float64) = @SArray [∂zH_∂r(xH, a), ∂zH_∂θ(xH, a), ∂zH_∂ϕ(xH, a)]
 

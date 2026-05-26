@@ -15,6 +15,7 @@ using ..SelfAccelerationCartesian
 using ..EvolveConstants
 using ..Waveform
 using ..HarmonicCoordDerivs
+using ..CartesianCoords
 using ..CoordinateDerivs
 using ..MultipoleDerivs
 using ..MultipoleDerivs
@@ -201,7 +202,12 @@ function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, si
     CoordinateDerivs.ComputeDerivs!(xBL, sign(vBL[1]), sign(vBL[2]), dxBL_dt, d2xBL_dt, d3xBL_dt, d4xBL_dt, d5xBL_dt, d6xBL_dt, d7xBL_dt, d8xBL_dt, d9xBL_dt, dx_dλ, d2x_dλ, d3x_dλ, d4x_dλ, d5x_dλ, d6x_dλ, d7x_dλ, d8x_dλ, d9x_dλ, a, E_t, L_t, C_t);
 
     # COMPUTE HARMONIC COORDINATE DERIVATIVES
-    HarmonicCoordDerivs.compute_harmonic_derivs!(xBL, dxBL_dt, d2xBL_dt, d3xBL_dt, d4xBL_dt, d5xBL_dt, d6xBL_dt, d7xBL_dt, d8xBL_dt, d9xBL_dt, xH, dxH_dt, d2xH_dt, d3xH_dt, d4xH_dt, d5xH_dt, d6xH_dt, d7xH_dt, d8xH_dt, d9xH_dt, a);
+    if coordinates == "harmonic"
+        HarmonicCoordDerivs.compute_harmonic_derivs!(xBL, dxBL_dt, d2xBL_dt, d3xBL_dt, d4xBL_dt, d5xBL_dt, d6xBL_dt, d7xBL_dt, d8xBL_dt, d9xBL_dt, xH, dxH_dt, d2xH_dt, d3xH_dt, d4xH_dt, d5xH_dt, d6xH_dt, d7xH_dt, d8xH_dt, d9xH_dt, a);
+    elseif coordinates == "cartesian"
+        CartesianCoords.compute_cartesian_derivs!(xBL, dxBL_dt, d2xBL_dt, d3xBL_dt, d4xBL_dt, d5xBL_dt, d6xBL_dt, d7xBL_dt, d8xBL_dt, d9xBL_dt, xH, dxH_dt, d2xH_dt, d3xH_dt, d4xH_dt, d5xH_dt, d6xH_dt, d7xH_dt, d8xH_dt, d9xH_dt)
+    end
+
 
     # UPDATE MULTIPOLE MOMENTS AND TRAJECTORY ARRAYS
     MultipoleDerivs.compute_WF_moments!(q, Mij2, Mijk3, Mijkl4, Sij2, Sijk3, xH, dxH_dt, d2xH_dt, d3xH_dt, d4xH_dt); # note that all implemented moments are calculated for the waveform. In the post-processing step, one can choose which moments to include
@@ -272,7 +278,11 @@ function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, si
         CoordinateDerivs.ComputeDerivs!(xBL, sign(vBL[1]), sign(vBL[2]), dxBL_dt, d2xBL_dt, d3xBL_dt, d4xBL_dt, d5xBL_dt, d6xBL_dt, d7xBL_dt, d8xBL_dt, d9xBL_dt, dx_dλ, d2x_dλ, d3x_dλ, d4x_dλ, d5x_dλ, d6x_dλ, d7x_dλ, d8x_dλ, d9x_dλ, a, E_t, L_t, C_t);
 
         # COMPUTE HARMONIC COORDINATE DERIVATIVES
-        HarmonicCoordDerivs.compute_harmonic_derivs!(xBL, dxBL_dt, d2xBL_dt, d3xBL_dt, d4xBL_dt, d5xBL_dt, d6xBL_dt, d7xBL_dt, d8xBL_dt, d9xBL_dt, xH, dxH_dt, d2xH_dt, d3xH_dt, d4xH_dt, d5xH_dt, d6xH_dt, d7xH_dt, d8xH_dt, d9xH_dt, a);
+        if coordinates == "harmonic"
+            HarmonicCoordDerivs.compute_harmonic_derivs!(xBL, dxBL_dt, d2xBL_dt, d3xBL_dt, d4xBL_dt, d5xBL_dt, d6xBL_dt, d7xBL_dt, d8xBL_dt, d9xBL_dt, xH, dxH_dt, d2xH_dt, d3xH_dt, d4xH_dt, d5xH_dt, d6xH_dt, d7xH_dt, d8xH_dt, d9xH_dt, a);
+        elseif coordinates == "cartesian"
+            CartesianCoords.compute_cartesian_derivs!(xBL, dxBL_dt, d2xBL_dt, d3xBL_dt, d4xBL_dt, d5xBL_dt, d6xBL_dt, d7xBL_dt, d8xBL_dt, d9xBL_dt, xH, dxH_dt, d2xH_dt, d3xH_dt, d4xH_dt, d5xH_dt, d6xH_dt, d7xH_dt, d8xH_dt, d9xH_dt)
+        end
 
         ## COMPUTE THE FLUXES AND UPDATE ORBITAL CONSTANTS OR COMPUTE WAVEFORM MOMENTS, DEPENDING ON WHETHER IT IS A SELF-FORCE OR WAVEFORM STEP ##
         if WF_step
@@ -303,7 +313,8 @@ function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, si
                 dxmSij5 .= 0.0;
             end
 
-            Vrr, ∂Vrr_∂t = RRPotentials.compute_RR_potentials!(Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a, xH, dxH_dt, Mij5, Mij6, Mij7, Mij8, dxmMij5, dxmMij6, dxmMij7, Mijk7, Mijk8, dxmMijk7, Sij5, Sij6, dxmSij5);
+            v2power = 0;
+            Vrr, ∂Vrr_∂t = RRPotentials.compute_RR_potentials!(Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a, xH, dxH_dt, d2xH_dt, Mij5, Mij6, Mij7, Mij8, dxmMij5, dxmMij6, dxmMij7, Mijk7, Mijk8, dxmMijk7, Sij5, Sij6, dxmSij5, v2power);
 
             vH .= dxH_dt
             aH .= d2xH_dt

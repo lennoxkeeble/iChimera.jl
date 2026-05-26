@@ -16,13 +16,14 @@ function ε(i::Int, j::Int, k::Int)::Int
     return get(levi_civita_table, (i, j, k), 0)
 end
 
-function compute_RR_potentials!(Virr::MVector{3, Float64}, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂t::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64, 9}, x::MVector{3, Float64}, dx::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, Mij6::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mij8::MMatrix{3, 3, Float64, 9}, dxmMij5::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMij6::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMij7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk8::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMijk7::MArray{Tuple{3, 3, 3, 3}, Float64, 4, 81}, Skl5::MMatrix{3, 3, Float64, 9}, Skl6::MMatrix{3, 3, Float64, 9}, dxmSkl5::MArray{Tuple{3, 3, 3}, Float64, 3, 27})
 
-    Vrr = RRPotentials.Vrr(x, Mij5, Mij7, Mijk7)
-    ∂Vrr_∂t = RRPotentials.∂Vrr_∂t(x, dx, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8)
+function compute_RR_potentials!(Virr::MVector{3, Float64}, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂t::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64, 9}, x::MVector{3, Float64}, dx::MVector{3, Float64}, d2x::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, Mij6::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mij8::MMatrix{3, 3, Float64, 9}, dxmMij5::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMij6::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMij7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk8::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMijk7::MArray{Tuple{3, 3, 3, 3}, Float64, 4, 81}, Skl5::MMatrix{3, 3, Float64, 9}, Skl6::MMatrix{3, 3, Float64, 9}, dxmSkl5::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, n::Int64)
+
+    Vrr = RRPotentials.Vrr(x, dx, Mij5, Mij7, Mijk7, n)
+    ∂Vrr_∂t = RRPotentials.∂Vrr_∂t(x, dx, d2x, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, n)
 
     for i = 1:3
-        ∂Vrr_∂a[i] = RRPotentials.∂Vrr_∂xm(i, x, Mij5, dxmMij5, Mij7, dxmMij7, Mijk7, dxmMijk7)
+        ∂Vrr_∂a[i] = RRPotentials.∂Vrr_∂xm(i, x, dx, Mij5, dxmMij5, Mij7, dxmMij7, Mijk7, dxmMijk7, n)
         Virr[i] =  RRPotentials.Virr(i, x, Mij6, Skl5)
         ∂Virr_∂t[i] = RRPotentials.∂Virr_∂t(i, x, dx, Mij6, Mij7, Skl5, Skl6)
         for j = 1:3
@@ -33,14 +34,58 @@ function compute_RR_potentials!(Virr::MVector{3, Float64}, ∂Vrr_∂a::MVector{
     return Vrr, ∂Vrr_∂t
 end
 
-function Vrr(x::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27})::Float64 
+# function Vrr(x::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27})::Float64 
+#     sum = 0.0
+#     for i =1:3
+#         for j =1:3
+#             sum += (-1.0/5.0) * x[i] * x[j] * Mij5[i, j]
+#             sum += (-1.0/70.0) * x[i] * x[j] * (x[1]^2+x[2]^2+x[3]^2) * Mij7[i, j]
+#             for k =1:3
+#                 sum += (x[i]*x[j]*x[k]*Mijk7[i,j,k])/189.
+#             end
+#         end
+#     end
+#     return sum
+# end
+
+
+# function ∂Vrr_∂t(x::MVector{3, Float64}, dx::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, Mij6::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mij8::MMatrix{3, 3, Float64, 9}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk8::MArray{Tuple{3, 3, 3}, Float64, 3, 27})::Float64 
+#     sum = 0.0
+#     for i =1:3
+#         for j =1:3
+#             sum += (-((x[j]*dx[i] + x[i]*dx[j])*Mij5[i,j]) - x[i]*x[j]*Mij6[i,j])/5.
+#             sum += (-((x[j]*(2*x[i]*(x[1]*dx[1] + x[2]*dx[2] + x[3]*dx[3]) + (x[1]^2 + x[2]^2 + x[3]^2)*dx[i]) + (x[1]^2 + x[2]^2 + x[3]^2)*x[i]*dx[j])*Mij7[i,j]) - (x[1]^2 + x[2]^2 + x[3]^2)*x[i]*x[j]*Mij8[i,j])/70.
+#             for k = 1:3
+#                 sum += ((x[i]*x[k]*dx[j] + x[j]*(x[k]*dx[i] + x[i]*dx[k]))*Mijk7[i,j,k] + x[i]*x[j]*x[k]*Mijk8[i,j,k])/189.
+#             end
+#         end
+#     end
+#     return sum
+# end
+
+# function ∂Vrr_∂xm(m::Int64, x::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, dxmMij5::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mij7::MMatrix{3, 3, Float64, 9}, dxmMij7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMijk7::MArray{Tuple{3, 3, 3, 3}, Float64, 4, 81})::Float64 
+#     sum = 0.0
+#     for i =1:3
+#         for j =1:3
+#             sum += (-(dxmMij5[i,j,m]*x[i]*x[j]) - Mij5[i,j]*(x[j]*δ(i,m) + x[i]*δ(j,m)))/5.
+#             sum += (-(dxmMij7[i,j,m]*(x[1]^2 + x[2]^2 + x[3]^2)*x[i]*x[j]) - Mij7[i,j]*(2*x[i]*x[j]*(x[1]*δ(1,m) + x[2]*δ(2,m) + x[3]*δ(3,m)) + (x[1]^2 + x[2]^2 + x[3]^2)*(x[j]*δ(i,m) + x[i]*δ(j,m))))/70.
+#             for k = 1:3
+#                 sum += (dxmMijk7[i,j,k,m]*x[i]*x[j]*x[k] + Mijk7[i,j,k]*(x[i]*x[k]*δ(j,m) + x[j]*(x[k]*δ(i,m) + x[i]*δ(k,m))))/189. 
+#             end
+#         end
+#     end
+#     return sum
+# end
+
+
+function Vrr(x::MVector{3, Float64}, dx::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, n::Int64)::Float64 
     sum = 0.0
     for i =1:3
         for j =1:3
             sum += (-1.0/5.0) * x[i] * x[j] * Mij5[i, j]
-            sum += (-1.0/70.0) * x[i] * x[j] * (x[1]^2+x[2]^2+x[3]^2) * Mij7[i, j]
+            sum += (dx[1]^2 + dx[2]^2 + dx[3]^2)^n * (-1.0/70.0) * x[i] * x[j] * (x[1]^2+x[2]^2+x[3]^2) * Mij7[i, j]
             for k =1:3
-                sum += (x[i]*x[j]*x[k]*Mijk7[i,j,k])/189.
+                sum += (dx[1]^2 + dx[2]^2 + dx[3]^2)^n * (x[i]*x[j]*x[k]*Mijk7[i,j,k])/189.
             end
         end
     end
@@ -48,28 +93,28 @@ function Vrr(x::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, Mij7::MMat
 end
 
 
-function ∂Vrr_∂t(x::MVector{3, Float64}, dx::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, Mij6::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mij8::MMatrix{3, 3, Float64, 9}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk8::MArray{Tuple{3, 3, 3}, Float64, 3, 27})::Float64 
+function ∂Vrr_∂t(x::MVector{3, Float64}, dx::MVector{3, Float64}, d2x::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, Mij6::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mij8::MMatrix{3, 3, Float64, 9}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk8::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, n::Int64)::Float64 
     sum = 0.0
     for i =1:3
         for j =1:3
             sum += (-((x[j]*dx[i] + x[i]*dx[j])*Mij5[i,j]) - x[i]*x[j]*Mij6[i,j])/5.
-            sum += (-((x[j]*(2*x[i]*(x[1]*dx[1] + x[2]*dx[2] + x[3]*dx[3]) + (x[1]^2 + x[2]^2 + x[3]^2)*dx[i]) + (x[1]^2 + x[2]^2 + x[3]^2)*x[i]*dx[j])*Mij7[i,j]) - (x[1]^2 + x[2]^2 + x[3]^2)*x[i]*x[j]*Mij8[i,j])/70.
+            sum += ((dx[1]^2 + dx[2]^2 + dx[3]^2)^n*(-2*x[i]*x[j]*(x[1]*dx[1] + x[2]*dx[2] + x[3]*dx[3])*Mij7[i,j] - (x[1]^2 + x[2]^2 + x[3]^2)*x[j]*dx[i]*Mij7[i,j] - (x[1]^2 + x[2]^2 + x[3]^2)*x[i]*dx[j]*Mij7[i,j] - (2*n*(x[1]^2 + x[2]^2 + x[3]^2)*x[i]*x[j]*(dx[1]*d2x[1] + dx[2]*d2x[2] + dx[3]*d2x[3])*Mij7[i,j])/(dx[1]^2 + dx[2]^2 + dx[3]^2) - (x[1]^2 + x[2]^2 + x[3]^2)*x[i]*x[j]*Mij8[i,j]))/70.
             for k = 1:3
-                sum += ((x[i]*x[k]*dx[j] + x[j]*(x[k]*dx[i] + x[i]*dx[k]))*Mijk7[i,j,k] + x[i]*x[j]*x[k]*Mijk8[i,j,k])/189.
+                sum += ((dx[1]^2 + dx[2]^2 + dx[3]^2)^n*(x[j]*x[k]*dx[i]*Mijk7[i,j,k] + x[i]*x[k]*dx[j]*Mijk7[i,j,k] + x[i]*x[j]*dx[k]*Mijk7[i,j,k] + (2*n*x[i]*x[j]*x[k]*(dx[1]*d2x[1] + dx[2]*d2x[2] + dx[3]*d2x[3])*Mijk7[i,j,k])/(dx[1]^2 + dx[2]^2 + dx[3]^2) + x[i]*x[j]*x[k]*Mijk8[i,j,k]))/189.
             end
         end
     end
     return sum
 end
 
-function ∂Vrr_∂xm(m::Int64, x::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, dxmMij5::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mij7::MMatrix{3, 3, Float64, 9}, dxmMij7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMijk7::MArray{Tuple{3, 3, 3, 3}, Float64, 4, 81})::Float64 
+function ∂Vrr_∂xm(m::Int64, x::MVector{3, Float64}, dx::MVector{3, Float64}, Mij5::MMatrix{3, 3, Float64, 9}, dxmMij5::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mij7::MMatrix{3, 3, Float64, 9}, dxmMij7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMijk7::MArray{Tuple{3, 3, 3, 3}, Float64, 4, 81}, n::Int64)::Float64 
     sum = 0.0
     for i =1:3
         for j =1:3
             sum += (-(dxmMij5[i,j,m]*x[i]*x[j]) - Mij5[i,j]*(x[j]*δ(i,m) + x[i]*δ(j,m)))/5.
-            sum += (-(dxmMij7[i,j,m]*(x[1]^2 + x[2]^2 + x[3]^2)*x[i]*x[j]) - Mij7[i,j]*(2*x[i]*x[j]*(x[1]*δ(1,m) + x[2]*δ(2,m) + x[3]*δ(3,m)) + (x[1]^2 + x[2]^2 + x[3]^2)*(x[j]*δ(i,m) + x[i]*δ(j,m))))/70.
+            sum += -0.014285714285714285*((dxmMij7[i,j,m]*(x[1]^2 + x[2]^2 + x[3]^2)*x[i]*x[j] + Mij7[i,j]*(x[j]*(2*x[i]*(x[1]*δ(1,m) + x[2]*δ(2,m) + x[3]*δ(3,m)) + (x[1]^2 + x[2]^2 + x[3]^2)*δ(i,m)) + (x[1]^2 + x[2]^2 + x[3]^2)*x[i]*δ(j,m)))*(dx[1]^2 + dx[2]^2 + dx[3]^2)^n)
             for k = 1:3
-                sum += (dxmMijk7[i,j,k,m]*x[i]*x[j]*x[k] + Mijk7[i,j,k]*(x[i]*x[k]*δ(j,m) + x[j]*(x[k]*δ(i,m) + x[i]*δ(k,m))))/189. 
+                sum += ((dxmMijk7[i,j,k,m]*x[i]*x[j]*x[k] + Mijk7[i,j,k]*(x[i]*x[k]*δ(j,m) + x[j]*(x[k]*δ(i,m) + x[i]*δ(k,m))))*(dx[1]^2 + dx[2]^2 + dx[3]^2)^n)/189.
             end
         end
     end

@@ -53,7 +53,7 @@ function iota_to_theta_min(a::Float64, p::Float64, e::Float64, ι::Float64)
         iota_theta(θmin::Float64)::Float64 = InclinationMappings.compute_iota(a, p, e, θmin, sign_Lz) - ι
         θmin = find_zero(iota_theta, π/2)
     end
-    return θmin
+    return θmin < π/2 ? θmin : θmin < π ? π - θmin : throw(DomainError("The root found for θmin is $(θmin), which is outside the expected range of [0, π]"))
 end
 
 # Eq. 1.2 of arXiv:2401.09577v2---note that I is in degrees and θmin will be in radians

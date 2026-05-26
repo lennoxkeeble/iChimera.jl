@@ -113,16 +113,16 @@ end
 
 # define projection operator
 Pαβ(vH::AbstractArray, xH::AbstractArray, a::Float64) = ημν + Qμν(xH, a) + Γ(vH, xH, a)^2 * otimes(vcat([1], vH))   # contravariant, Eq. A1
-P_αβ(vH::AbstractArray, xH::AbstractArray, a::Float64) =  ημν + K_μν(xH, a) + Γ(vH, xH, a)^2 * otimes(vcat([1], vH))   # cοvariant, Eq. A2 (note that we take both contravariant and covariant velocities as arguments)
+P_αβ(vH::AbstractArray, xH::AbstractArray, a::Float64) =  ημν + K_μν(xH, a) + Γ(vH, xH, a)^2 * otimes(vcat([-1], vH))   # cοvariant, Eq. A2 (note that we take both contravariant and covariant velocities as arguments)
 
 ### SELF-ACCELERATION PIECES ###
-# compute self-acceleration pieces
+# compute self-acceleration pieces. crucially ∂Virr_∂a = ∂_{a}V_{i}
 function A_RR(v::Float64, vH::AbstractArray, ∂Vrr_∂t::Float64, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64})
     aRR = (1.0 - v^2) * ∂Vrr_∂t   # first term in Eq. A4
     @inbounds for i=1:3
         aRR += 2.0 * vH[i] * ∂Vrr_∂a[i]   # second term Eq. A4
         @inbounds for j=1:3
-            aRR += -4.0 * vH[i] * vH[j] * ∂Virr_∂a[i, j]   # third term Eq. A4
+            aRR += -4.0 * vH[i] * vH[j] * ∂Virr_∂a[j, i]   # third term Eq. A4
         end
     end
     return aRR
@@ -200,6 +200,29 @@ function Di_RR(vH::AbstractArray, ∂Ki_∂xk::SMatrix{3, 3, Float64}, ∂Kij_�
     return D
 end
 
+# computes the four self-acceleration components A^{2}_{β} (Eqs. 62 - 63)
+function compute_BCD(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Float64, a::Float64)
+    jBLH = CartesianCoords.jBLH(xH, a)
+    HessBLH = [CartesianCoords.HessBLH(xH, rH, a, m) for m=1:3]
+    ∂K_∂xk = @SVector [SelfAccelerationCartesian.∂K_∂xk(xH, xBL, jBLH, HessBLH, a, j) for j=1:3];
+    ∂Ki_∂xk = @SMatrix [SelfAccelerationCartesian.∂Ki_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k) for j=1:3, k=1:3];
+    ∂Kij_∂xk = @SArray [SelfAccelerationCartesian.∂Kij_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k, l) for j=1:3, k=1:3, l=1:3]
+    Q = SelfAccelerationCartesian.Q(xH, a)
+    Qi = SelfAccelerationCartesian.Qi(xH, a)
+    Qij = SelfAccelerationCartesian.Qij(xH, a)
+
+    BRR = B_RR(Qi, ∂K_∂xk)
+    BiRR = Bi_RR(Qij, ∂K_∂xk)
+
+    CRR = C_RR(vH, ∂K_∂xk, ∂Ki_∂xk, Q, Qi)
+    CiRR = Ci_RR(vH, ∂K_∂xk, ∂Ki_∂xk, Qi, Qij)
+
+    DRR = D_RR(vH, ∂Ki_∂xk, ∂Kij_∂xk, Q, Qi)
+    DiRR = Di_RR(vH, ∂Ki_∂xk, ∂Kij_∂xk, Qi, Qij)
+
+    sum_terms = (BRR + CRR + DRR, BiRR + CiRR + DiRR)
+    return sum_terms
+end
 
 # computes the four self-acceleration components A^{2}_{β} (Eqs. 62 - 63)
 function A2_β(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Float64, a::Float64, VRR::Float64, ViRR::MVector{3, Float64})

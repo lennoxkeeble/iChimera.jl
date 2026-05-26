@@ -34,33 +34,53 @@ function compute_ρ_derivs!(dρ::AbstractVector{Float64}, r::Float64, a::Float64
     dρ[9] = d9ρ(r, a)
 end
 
-Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = π/2 - atan((-M + r)/a) - (a*log((r - rm)/(r - rp)))/(2.0*sqrt(-a^2 + M^2))
+Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = π/2. + atan((M - r)/a) + (a*log((r - rp)/(r - rm)))/(2.0*sqrt(-a^2 + M^2))
 
 d1Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = -(a/(a^2 + (M - r)^2)) + (a*(-rm + rp))/(2.0*sqrt(-a^2 + M^2)*(r - rm)*(r - rp))
 
-d2Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (2*a*(-M + r))/(a^2 + (M - r)^2)^2 + (a*(2*r - rm - rp)*(rm - rp))/(2.0*sqrt(-a^2 + M^2)*(r -
-rm)^2*(r - rp)^2)
+d2Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (2*a*(-M + r))/(a^2 + (M - r)^2)^2 + (a*(2*r - rm - rp)*(rm - rp))/(2.0*sqrt(-a^2 + M^2)*(r - rm)^2*(r - rp)^2)
 
-d3Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (2*a*(a^2 - 3*(M - r)^2))/(a^2 + (M - r)^2)^3 - (a*(rm - rp)*(3*r^2 + rm^2 + rm*rp + rp^2 -
-3*r*(rm + rp)))/(sqrt(-a^2 + M^2)*(r - rm)^3*(r - rp)^3)
+d3Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (2*a*(a^2 - 3*(M - r)^2))/(a^2 + (M - r)^2)^3 - (a*(rm - rp)*(3*r^2 + rm^2 + rm*rp + rp^2 - 3*r*(rm + rp)))/(sqrt(-a^2 + M^2)*(r - rm)^3*(r - rp)^3)
 
-d4Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (24*a*(M - r)*(a + M - r)*(a - M + r))/(a^2 + (M - r)^2)^4 + (3*a*(2*r - rm - rp)*(rm - rp)*(2*r^2 +
-rm^2 + rp^2 - 2*r*(rm + rp)))/(sqrt(-a^2 + M^2)*(r - rm)^4*(r - rp)^4)
+d4Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (24*a*(M - r)*(a + M - r)*(a - M + r))/(a^2 + (M - r)^2)^4 + (3*a*(2*r - rm - rp)*(rm - rp)*(2*r^2 + rm^2 + rp^2 - 2*r*(rm + rp)))/(sqrt(-a^2 + M^2)*(r - rm)^4*(r - rp)^4)
 
-d5Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (-24*a*(a^4 - 10*a^2*(M - r)^2 + 5*(M - r)^4))/(a^2 + (M - r)^2)^5 - (12*a*(rm^5 + 5*r^4*(rm - rp) -
-rp^5 + 10*r^3*(-rm^2 + rp^2) + 10*r^2*(rm^3 - rp^3) + 5*r*(-rm^4 + rp^4)))/(sqrt(-a^2 + M^2)*(r - rm)^5*(r - rp)^5)
+d5Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (-24*a*(a^4 - 10*a^2*(M - r)^2 + 5*(M - r)^4))/(a^2 + (M - r)^2)^5 - (12*a*(rm^5 + 5*r^4*(rm - rp) - rp^5 + 10*r^3*(-rm^2 + rp^2) + 10*r^2*(rm^3 - rp^3) + 5*r*(-rm^4 + rp^4)))/(sqrt(-a^2 + M^2)*(r - rm)^5*(r - rp)^5)
 
-d6Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (-240*a*(3*a^4 - 10*a^2*(M - r)^2 + 3*(M - r)^4)*(M - r))/(a^2 + (M - r)^2)^6 +
-(60*a*(2*r - rm - rp)*(rm - rp)*(3*r^2 + rm^2 + rm*rp + rp^2 - 3*r*(rm + rp))*(r^2 + rm^2 - rm*rp + rp^2 - r*(rm + rp)))/(sqrt(-a^2 + M^2)*(r - rm)^6*(r - rp)^6)
+d6Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (-240*a*(3*a^4 - 10*a^2*(M - r)^2 + 3*(M - r)^4)*(M - r))/(a^2 + (M - r)^2)^6 + (60*a*(2*r - rm - rp)*(rm - rp)*(3*r^2 + rm^2 + rm*rp + rp^2 - 3*r*(rm + rp))*(r^2 + rm^2 - rm*rp + rp^2 - r*(rm + rp)))/(sqrt(-a^2 + M^2)*(r - rm)^6*(r - rp)^6)
 
-d7Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (720*a*(a^6 - 21*a^4*(M - r)^2 + 35*a^2*(M - r)^4 - 7*(M - r)^6))/(a^2 + (M - r)^2)^7 -
-(360*a*(rm^7 + 7*r^6*(rm - rp) - rp^7 + 21*r^5*(-rm^2 + rp^2) + 35*r^4*(rm^3 - rp^3) + 35*r^3*(-rm^4 + rp^4) + 21*r^2*(rm^5 - rp^5) + 7*r*(-rm^6 + rp^6)))/(sqrt(-a^2 + M^2)*(r - rm)^7*(r - rp)^7)
+d7Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (720*a*(a^6 - 21*a^4*(M - r)^2 + 35*a^2*(M - r)^4 - 7*(M - r)^6))/(a^2 + (M - r)^2)^7 - (360*a*(rm^7 + 7*r^6*(rm - rp) - rp^7 + 21*r^5*(-rm^2 + rp^2) + 35*r^4*(rm^3 - rp^3) + 35*r^3*(-rm^4 + rp^4) + 21*r^2*(rm^5 - rp^5) + 7*r*(-rm^6 + rp^6)))/(sqrt(-a^2 + M^2)*(r - rm)^7*(r - rp)^7)
 
-d8Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (40320*a*(a^6 - 7*a^4*(M - r)^2 + 7*a^2*(M - r)^4 - (M - r)^6)*(M - r))/(a^2 + (M - r)^2)^8 +
-(2520*a*(2*r - rm - rp)*(rm - rp)*(2*r^2 + rm^2 + rp^2 - 2*r*(rm + rp))*(2*r^4 + rm^4 + rp^4 - 4*r^3*(rm + rp) + 6*r^2*(rm^2 + rp^2) -
-4*r*(rm^3 + rp^3)))/(sqrt(-a^2 + M^2)*(r - rm)^8*(r - rp)^8)
+d8Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (40320*a*(a^6 - 7*a^4*(M - r)^2 + 7*a^2*(M - r)^4 - (M - r)^6)*(M - r))/(a^2 + (M - r)^2)^8 + (2520*a*(2*r - rm - rp)*(rm - rp)*(2*r^2 + rm^2 + rp^2 - 2*r*(rm + rp))*(2*r^4 + rm^4 + rp^4 - 4*r^3*(rm + rp) + 6*r^2*(rm^2 + rp^2) - 4*r*(rm^3 + rp^3)))/(sqrt(-a^2 + M^2)*(r - rm)^8*(r - rp)^8)
 
 d9Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (-40320*a*(a^8 - 36*a^6*(M - r)^2 + 126*a^4*(M - r)^4 - 84*a^2*(M - r)^6 + 9*(M - r)^8))/(a^2 + (M - r)^2)^9 - (20160*a*(rm^9 + 9*r^8*(rm - rp) - rp^9 + 36*r^7*(-rm^2 + rp^2) + 84*r^6*(rm^3 - rp^3) + 126*r^5*(-rm^4 + rp^4) + 126*r^4*(rm^5 - rp^5) + 84*r^3*(-rm^6 + rp^6) + 36*r^2*(rm^7 - rp^7) + 9*r*(-rm^8 + rp^8)))/(sqrt(-a^2 + M^2)*(r - rm)^9*(r - rp)^9)
+
+# Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = π/2 - atan((-M + r)/a) - (a*log((r - rm)/(r - rp)))/(2.0*sqrt(-a^2 + M^2))
+
+# d1Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = -(a/(a^2 + (M - r)^2)) + (a*(-rm + rp))/(2.0*sqrt(-a^2 + M^2)*(r - rm)*(r - rp))
+
+# d2Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (2*a*(-M + r))/(a^2 + (M - r)^2)^2 + (a*(2*r - rm - rp)*(rm - rp))/(2.0*sqrt(-a^2 + M^2)*(r -
+# rm)^2*(r - rp)^2)
+
+# d3Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (2*a*(a^2 - 3*(M - r)^2))/(a^2 + (M - r)^2)^3 - (a*(rm - rp)*(3*r^2 + rm^2 + rm*rp + rp^2 -
+# 3*r*(rm + rp)))/(sqrt(-a^2 + M^2)*(r - rm)^3*(r - rp)^3)
+
+# d4Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (24*a*(M - r)*(a + M - r)*(a - M + r))/(a^2 + (M - r)^2)^4 + (3*a*(2*r - rm - rp)*(rm - rp)*(2*r^2 +
+# rm^2 + rp^2 - 2*r*(rm + rp)))/(sqrt(-a^2 + M^2)*(r - rm)^4*(r - rp)^4)
+
+# d5Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (-24*a*(a^4 - 10*a^2*(M - r)^2 + 5*(M - r)^4))/(a^2 + (M - r)^2)^5 - (12*a*(rm^5 + 5*r^4*(rm - rp) -
+# rp^5 + 10*r^3*(-rm^2 + rp^2) + 10*r^2*(rm^3 - rp^3) + 5*r*(-rm^4 + rp^4)))/(sqrt(-a^2 + M^2)*(r - rm)^5*(r - rp)^5)
+
+# d6Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (-240*a*(3*a^4 - 10*a^2*(M - r)^2 + 3*(M - r)^4)*(M - r))/(a^2 + (M - r)^2)^6 +
+# (60*a*(2*r - rm - rp)*(rm - rp)*(3*r^2 + rm^2 + rm*rp + rp^2 - 3*r*(rm + rp))*(r^2 + rm^2 - rm*rp + rp^2 - r*(rm + rp)))/(sqrt(-a^2 + M^2)*(r - rm)^6*(r - rp)^6)
+
+# d7Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (720*a*(a^6 - 21*a^4*(M - r)^2 + 35*a^2*(M - r)^4 - 7*(M - r)^6))/(a^2 + (M - r)^2)^7 -
+# (360*a*(rm^7 + 7*r^6*(rm - rp) - rp^7 + 21*r^5*(-rm^2 + rp^2) + 35*r^4*(rm^3 - rp^3) + 35*r^3*(-rm^4 + rp^4) + 21*r^2*(rm^5 - rp^5) + 7*r*(-rm^6 + rp^6)))/(sqrt(-a^2 + M^2)*(r - rm)^7*(r - rp)^7)
+
+# d8Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (40320*a*(a^6 - 7*a^4*(M - r)^2 + 7*a^2*(M - r)^4 - (M - r)^6)*(M - r))/(a^2 + (M - r)^2)^8 +
+# (2520*a*(2*r - rm - rp)*(rm - rp)*(2*r^2 + rm^2 + rp^2 - 2*r*(rm + rp))*(2*r^4 + rm^4 + rp^4 - 4*r^3*(rm + rp) + 6*r^2*(rm^2 + rp^2) -
+# 4*r*(rm^3 + rp^3)))/(sqrt(-a^2 + M^2)*(r - rm)^8*(r - rp)^8)
+
+# d9Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (-40320*a*(a^8 - 36*a^6*(M - r)^2 + 126*a^4*(M - r)^4 - 84*a^2*(M - r)^6 + 9*(M - r)^8))/(a^2 + (M - r)^2)^9 - (20160*a*(rm^9 + 9*r^8*(rm - rp) - rp^9 + 36*r^7*(-rm^2 + rp^2) + 84*r^6*(rm^3 - rp^3) + 126*r^5*(-rm^4 + rp^4) + 126*r^4*(rm^5 - rp^5) + 84*r^3*(-rm^6 + rp^6) + 36*r^2*(rm^7 - rp^7) + 9*r*(-rm^8 + rp^8)))/(sqrt(-a^2 + M^2)*(r - rm)^9*(r - rp)^9)
 
 function compute_Φ_derivs!(dΦ::AbstractVector{Float64}, r::Float64, a::Float64, rm::Float64, rp::Float64)
     dΦ[1] = d1Φ(r, a, rm, rp)

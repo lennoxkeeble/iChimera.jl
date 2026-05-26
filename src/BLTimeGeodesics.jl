@@ -70,8 +70,7 @@ Function to compute dt/dτ (Eq. 28)
 - `v::AbstractVector{Float64}`: spatial velocity vector in BL coordinates wrt t, e.g., v = [drdt, dθdt, dϕdt].
 """
 @inline function Γ(r::Float64, θ::Float64, ϕ::Float64, v::AbstractVector{Float64}, a::Float64)::Float64
-    one_over_Γ = -Kerr.KerrMetric.g_tt(r, θ, ϕ, a) - 2.0 * Kerr.KerrMetric.g_tϕ(r, θ, ϕ, a) * v[3] - Kerr.KerrMetric.g_rr(r, θ, ϕ, a) * v[1]^2 - Kerr.KerrMetric.g_θθ(r, θ, ϕ, a) * v[2]^2 -
-        Kerr.KerrMetric.g_ϕϕ(r, θ, ϕ, a) * v[3]^2    
+    one_over_Γ = -Kerr.KerrMetric.g_tt(r, θ, ϕ, a) - 2.0 * Kerr.KerrMetric.g_tϕ(r, θ, ϕ, a) * v[3] - Kerr.KerrMetric.g_rr(r, θ, ϕ, a) * v[1]^2 - Kerr.KerrMetric.g_θθ(r, θ, ϕ, a) * v[2]^2 - Kerr.KerrMetric.g_ϕϕ(r, θ, ϕ, a) * v[3]^2    
     return sqrt(1.0/one_over_Γ)
 end
 
@@ -191,7 +190,7 @@ function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θmin::Float6
 
     tspan = (0.0, tmax); saveat_t = range(start=tspan[1], length=nPoints, stop=tspan[2])
 
-    prob = e == 0.0 ? ODEProblem(HJ_Eqns_circular, ics, tspan, params) : ODEProblem(HJ_Eqns, ics, tspan, params);
+    prob = e == 0.0 ? ODEProblem(HJ_Eqns_circular, ics, tspan, params) : isapprox(θmin, π/2) ? ODEProblem(HJ_Eqns_circular, ics, tspan, params) : ODEProblem(HJ_Eqns, ics, tspan, params);
     sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t);
 
     # deconstruct solution

@@ -34,7 +34,7 @@ rminus(a::Float64)::Float64 = 1.0 - sqrt(1.0 - a^2)
 @inline g_θθ(r::Float64, θ::Float64, ϕ::Float64, a::Float64)::Float64 = Σ(r, θ, a)
 @inline g_ϕϕ(r::Float64, θ::Float64, ϕ::Float64, a::Float64)::Float64 = (r^2 + a^2 + 2.0 * (a^2) * r * (sin(θ)^2) / Σ(r, θ, a)) * sin(θ)^2
 g(r::Float64, θ::Float64, ϕ::Float64, a::Float64) = @SMatrix [g_tt(r, θ, ϕ, a) 0.0 0.0 g_tϕ(r, θ, ϕ, a); 0.0 g_rr(r, θ, ϕ, a) 0.0 0.0; 0.0 0.0 g_θθ(r, θ, ϕ, a) 0.0; g_tϕ(r, θ, ϕ, a) 0.0 0.0 g_ϕϕ(r, θ, ϕ, a)]
-g_μν(r::Float64, θ::Float64, ϕ::Float64, a::Float64, μ::Int, ν::Int)::Float64 = (μ==1) && (ν==1) ? g_tt(r, θ, ϕ, a) : ((μ==1) && (ν==4)) || ((μ==4) && (ν==1)) ? g_tϕ(r, θ, ϕ, a) : μ==2 && ν==2 ? g_rr(r, θ, ϕ, a) : μ==3 && ν==3 ? g_θθ(r, θ, ϕ, a) : μ==4 & ν==4 ? g_ϕϕ(r, θ, ϕ, a) : 0.0
+g_μν(r::Float64, θ::Float64, ϕ::Float64, a::Float64, μ::Int, ν::Int)::Float64 = (μ==1) && (ν==1) ? g_tt(r, θ, ϕ, a) : ((μ==1) && (ν==4)) || ((μ==4) && (ν==1)) ? g_tϕ(r, θ, ϕ, a) : μ==2 && ν==2 ? g_rr(r, θ, ϕ, a) : μ==3 && ν==3 ? g_θθ(r, θ, ϕ, a) : μ==4 && ν==4 ? g_ϕϕ(r, θ, ϕ, a) : 0.0
 
 # contravariant components
 @inline gTT(r::Float64, θ::Float64, ϕ::Float64, a::Float64)::Float64 = (-1.0 + 2.0 * r * (a^2 + r^2) / ((a^2 + r^2) * Σ(r, θ, a) + 2.0a^2 * r * sin(θ)^2))^(-1.0)
@@ -43,7 +43,7 @@ g_μν(r::Float64, θ::Float64, ϕ::Float64, a::Float64, μ::Int, ν::Int)::Floa
 @inline gThTh(r::Float64, θ::Float64, ϕ::Float64, a::Float64)::Float64 = 1.0 / Σ(r, θ, a)
 @inline gΦΦ(r::Float64, θ::Float64, ϕ::Float64, a::Float64)::Float64 = (2.0 * r - Σ(r, θ, a)) / (sin(θ)^2 * (a^2 * r * cos(2.0θ) + r * (a^2 + 2.0r^2) - (a^2 + r^2) * Σ(r, θ, a)))
 ginv(r::Float64, θ::Float64, ϕ::Float64, a::Float64) = @SMatrix [gTT(r, θ, ϕ, a) 0.0 0.0 gTΦ(r, θ, ϕ, a); 0.0 gRR(r, θ, ϕ, a) 0.0 0.0; 0.0 0.0 gThTh(r, θ, ϕ, a) 0.0; gTΦ(r, θ, ϕ, a) 0.0 0.0 gΦΦ(r, θ, ϕ, a)]
-ginvμν(r::Float64, θ::Float64, ϕ::Float64, a::Float64, μ::Int, ν::Int)::Float64 = (μ==1) && (ν==1) ? gTT(r, θ, ϕ, a) : ((μ==1) && (ν==4)) || ((μ==4) && (ν==1)) ? gTΦ(r, θ, ϕ, a) : μ==2 && ν==2 ? gRR(r, θ, ϕ, a) : μ==3 && ν==3 ? gThTh(r, θ, ϕ, a) : μ==4 & ν==4 ? gΦΦ(r, θ, ϕ, a) : 0.0
+ginvμν(r::Float64, θ::Float64, ϕ::Float64, a::Float64, μ::Int, ν::Int)::Float64 = (μ==1) && (ν==1) ? gTT(r, θ, ϕ, a) : ((μ==1) && (ν==4)) || ((μ==4) && (ν==1)) ? gTΦ(r, θ, ϕ, a) : μ==2 && ν==2 ? gRR(r, θ, ϕ, a) : μ==3 && ν==3 ? gThTh(r, θ, ϕ, a) : μ==4 && ν==4 ? gΦΦ(r, θ, ϕ, a) : 0.0
 
 # two-rank killing tensor components - Eq. 12 of (arXiv:1109.0572v2)
 @inline ξ_tt(r::Float64, θ::Float64, ϕ::Float64, a::Float64)::Float64 = ((-2.0*a^2*r*sin(θ)^2 + (a^2 + r^2)*(2.0*r - Σ(r,θ,a)))^2 + r^2*Δ(r,a)*(2.0*r - Σ(r,θ,a))*Σ(r,θ,a))/(Δ(r,a)*Σ(r,θ,a)^2)
@@ -52,7 +52,7 @@ ginvμν(r::Float64, θ::Float64, ϕ::Float64, a::Float64, μ::Int, ν::Int)::Fl
 @inline ξ_θθ(r::Float64, θ::Float64, ϕ::Float64, a::Float64)::Float64 = r^2*Σ(r,θ,a)
 @inline ξ_ϕϕ(r::Float64, θ::Float64, ϕ::Float64, a::Float64)::Float64 = (r^2*sin(θ)^2*Δ(r,a)*Σ(r,θ,a)* (2.0*a^2*r*sin(θ)^2 + (a^2 + r^2)*Σ(r,θ,a)) + sin(θ)^4*(a*r*(a^2 + 2.0*r^2) + a^3*r*cos(2.0*θ) - a*(a^2 + r^2)*Σ(r,θ,a))^2)/(Δ(r,a)*Σ(r,θ,a)^2)
 @inline ξ(r::Float64, θ::Float64, ϕ::Float64, a::Float64) = @SMatrix [ξ_tt(r, θ, ϕ, a) 0.0 0.0 ξ_tϕ(r, θ, ϕ, a); 0.0 ξ_rr(r, θ, ϕ, a) 0.0 0.0; 0.0 0.0 ξ_θθ(r, θ, ϕ, a) 0.0; ξ_tϕ(r, θ, ϕ, a) 0.0 0.0 ξ_ϕϕ(r, θ, ϕ, a)]
-@inline ξ_μν(r::Float64, θ::Float64, ϕ::Float64, a::Float64, μ::Int, ν::Int)::Float64 = (μ==1) && (ν==1) ? ξ_tt(r, θ, ϕ, a) : ((μ==1) && (ν==4)) || ((μ==4) && (ν==1)) ? ξ_tϕ(r, θ, ϕ, a) : μ==2 && ν==2 ? ξ_rr(r, θ, ϕ, a) : μ==3 && ν==3 ? ξ_θθ(r, θ, ϕ, a) : μ==4 & ν==4 ? ξ_ϕϕ(r, θ, ϕ, a) : 0.0
+@inline ξ_μν(r::Float64, θ::Float64, ϕ::Float64, a::Float64, μ::Int, ν::Int)::Float64 = (μ==1) && (ν==1) ? ξ_tt(r, θ, ϕ, a) : ((μ==1) && (ν==4)) || ((μ==4) && (ν==1)) ? ξ_tϕ(r, θ, ϕ, a) : μ==2 && ν==2 ? ξ_rr(r, θ, ϕ, a) : μ==3 && ν==3 ? ξ_θθ(r, θ, ϕ, a) : μ==4 && ν==4 ? ξ_ϕϕ(r, θ, ϕ, a) : 0.0
 
 # Christoffel symbols
 @inline Γttr(r::Float64, θ::Float64, ϕ::Float64, a::Float64)::Float64 = -4.0 * (a^2 + r^2) * (-r^2 + (a^2 * cos(θ)^2)) / ((a^2 + r * (r - 2.0)) * (a^2 + 2.0r^2 + a^2 * cos(2.0θ))^2)

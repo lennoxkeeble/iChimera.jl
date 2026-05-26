@@ -5,7 +5,7 @@
 
 =#
 
-module SelfAccelerationHarmonic
+module SelfAccelerationHarmonic2
 using LinearAlgebra
 using Combinatorics
 using ..HarmonicCoords
@@ -109,7 +109,7 @@ function ∂Kij_∂xk(xH::AbstractArray, rH::Float64, xBL::AbstractArray, jBLH::
 end
 
 # define relativistic Γ factor
-Γ(vH::AbstractArray, xH::AbstractArray, a::Float64) = 1.0 / sqrt(1.0 - SelfAccelerationHarmonic.norm2_3d(vH) - K(xH, a) - 2.0 * dot(K_i(xH, a), vH) - transpose(vH) * K_ij(xH, a) * vH)   # Eq. A3
+Γ(vH::AbstractArray, xH::AbstractArray, a::Float64) = 1.0 / sqrt(1.0 - SelfAccelerationHarmonic2.norm2_3d(vH) - K(xH, a) - 2.0 * dot(K_i(xH, a), vH) - transpose(vH) * K_ij(xH, a) * vH)   # Eq. A3
 
 # define projection operator
 Pαβ(vH::AbstractArray, xH::AbstractArray, a::Float64) = ημν + Qμν(xH, a) + Γ(vH, xH, a)^2 * otimes(vcat([1], vH))   # contravariant, Eq. A1
@@ -202,39 +202,15 @@ end
 
 
 # computes the four self-acceleration components A^{2}_{β} (Eqs. 62 - 63)
-function compute_BCD(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Float64, a::Float64)
-    jBLH = HarmonicCoords.jBLH(xH, a)
-    HessBLH = [HarmonicCoords.HessBLH(xH, rH, a, m) for m=1:3]
-    ∂K_∂xk = @SVector [SelfAccelerationHarmonic.∂K_∂xk(xH, xBL, jBLH, HessBLH, a, j) for j=1:3];
-    ∂Ki_∂xk = @SMatrix [SelfAccelerationHarmonic.∂Ki_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k) for j=1:3, k=1:3];
-    ∂Kij_∂xk = @SArray [SelfAccelerationHarmonic.∂Kij_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k, l) for j=1:3, k=1:3, l=1:3]
-    Q = SelfAccelerationHarmonic.Q(xH, a)
-    Qi = SelfAccelerationHarmonic.Qi(xH, a)
-    Qij = SelfAccelerationHarmonic.Qij(xH, a)
-
-    BRR = B_RR(Qi, ∂K_∂xk)
-    BiRR = Bi_RR(Qij, ∂K_∂xk)
-
-    CRR = C_RR(vH, ∂K_∂xk, ∂Ki_∂xk, Q, Qi)
-    CiRR = Ci_RR(vH, ∂K_∂xk, ∂Ki_∂xk, Qi, Qij)
-
-    DRR = D_RR(vH, ∂Ki_∂xk, ∂Kij_∂xk, Q, Qi)
-    DiRR = Di_RR(vH, ∂Ki_∂xk, ∂Kij_∂xk, Qi, Qij)
-
-    sum_terms = (BRR + CRR + DRR, BiRR + CiRR + DiRR)
-    return sum_terms
-end
-
-# computes the four self-acceleration components A^{2}_{β} (Eqs. 62 - 63)
 function A2_β(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Float64, a::Float64, VRR::Float64, ViRR::MVector{3, Float64})
     jBLH = HarmonicCoords.jBLH(xH, a)
     HessBLH = [HarmonicCoords.HessBLH(xH, rH, a, m) for m=1:3]
-    ∂K_∂xk = @SVector [SelfAccelerationHarmonic.∂K_∂xk(xH, xBL, jBLH, HessBLH, a, j) for j=1:3];
-    ∂Ki_∂xk = @SMatrix [SelfAccelerationHarmonic.∂Ki_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k) for j=1:3, k=1:3];
-    ∂Kij_∂xk = @SArray [SelfAccelerationHarmonic.∂Kij_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k, l) for j=1:3, k=1:3, l=1:3]
-    Q = SelfAccelerationHarmonic.Q(xH, a)
-    Qi = SelfAccelerationHarmonic.Qi(xH, a)
-    Qij = SelfAccelerationHarmonic.Qij(xH, a)
+    ∂K_∂xk = @SVector [SelfAccelerationHarmonic2.∂K_∂xk(xH, xBL, jBLH, HessBLH, a, j) for j=1:3];
+    ∂Ki_∂xk = @SMatrix [SelfAccelerationHarmonic2.∂Ki_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k) for j=1:3, k=1:3];
+    ∂Kij_∂xk = @SArray [SelfAccelerationHarmonic2.∂Kij_∂xk(xH, rH, xBL, jBLH, HessBLH, a, j, k, l) for j=1:3, k=1:3, l=1:3]
+    Q = SelfAccelerationHarmonic2.Q(xH, a)
+    Qi = SelfAccelerationHarmonic2.Qi(xH, a)
+    Qij = SelfAccelerationHarmonic2.Qij(xH, a)
 
     BRR = B_RR(Qi, ∂K_∂xk)
     BiRR = Bi_RR(Qij, ∂K_∂xk)
@@ -253,7 +229,7 @@ end
 
 # compute self-acceleration in harmonic coordinates and transform components back to BL
 function aRRα(aSF_H::AbstractVector{Float64}, aSF_BL::AbstractVector{Float64}, xH::AbstractVector{Float64}, v::Float64, vH::AbstractVector{Float64}, xBL::AbstractVector{Float64}, rH::Float64, a::Float64, Vrr::Float64, ∂Vrr_∂t::Float64, Virr::MVector{3, Float64}, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂t::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64, 9})
-    aSF_H[:] = -Γ(vH, xH, a)^2 * Pαβ(vH, xH, a) * (A1_β(v, vH, ∂Vrr_∂t, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a) + A2_β(xH, vH, xBL, rH, a, Vrr, Virr))
+    aSF_H[:] = -Γ(vH, xH, a)^2 * HarmonicCoords.gμν_H(xH, a) * (A1_β(v, vH, ∂Vrr_∂t, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a) - A2_β(xH, vH, xBL, rH, a, Vrr, Virr))
     aSF_BL[1] = aSF_H[1]
     aSF_BL[2:4] = HarmonicCoords.aHtoBL(xH, zeros(3), aSF_H[2:4], a)
 end
