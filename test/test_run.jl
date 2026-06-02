@@ -1,5 +1,6 @@
 include("test_params.jl");
 
+emri.θmin * 180 / π
 
 @time iChimera.compute_inspiral(emri);
 @time iChimera.compute_waveform(emri);

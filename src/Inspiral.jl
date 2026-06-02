@@ -11,6 +11,7 @@ using ..Kerr
 using ..ConstantsOfMotion
 using ..BLTimeGeodesics
 using ..SelfAccelerationHarmonic
+using ..SelfAccelerationHarmonicIW
 using ..SelfAccelerationCartesian
 using ..EvolveConstants
 using ..Waveform
@@ -321,7 +322,7 @@ function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, si
             rH = SelfAccelerationHarmonic.norm_3d(xH);
             v = SelfAccelerationHarmonic.norm_3d(vH);
             if coordinates == "harmonic"
-                SelfAccelerationHarmonic.aRRα(aSF_H, aSF_BL, xH, v, vH, xBL, rH, a, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a)
+                SelfAccelerationHarmonicIW.aRRα(aSF_H, aSF_BL, xH, v, vH, aH, d3xH_dt, xBL, rH, a, q, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a; alpha_current=4.0, beta_current=5.0, alpha_target=4.0, beta_target=5.0, gauge_sign=-1.0, eps_fd=1.0e-5 * max(1.0, SelfAccelerationHarmonic.norm_3d(xH)))
             elseif coordinates == "cartesian"
                 SelfAccelerationCartesian.aRRα(aSF_H, aSF_BL, xH, v, vH, xBL, rH, a, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a)
             end

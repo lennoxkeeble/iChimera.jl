@@ -32,6 +32,7 @@ include("RRPotentials.jl");
 include("SelfAccelerationCartesian.jl");
 include("SelfAccelerationCartesian2.jl");
 include("SelfAccelerationHarmonic.jl");
+include("SelfAccelerationHarmonicIW.jl");
 include("SelfAccelerationHarmonic2.jl");
 include("Waveform.jl");
 include("EvolveConstants.jl");
