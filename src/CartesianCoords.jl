@@ -46,6 +46,13 @@ function xBLtoH!(xH::AbstractVector{Float64}, xBL::AbstractVector{Float64}, a::F
     xH[3] = xBL[1] * cos(xBL[2])
 end
 
+function xBLtoH(xBL::AbstractVector{Float64}, a::Float64)
+    xc = xBL[1] * sin(xBL[2]) * cos(xBL[3])
+    yc = xBL[1] * sin(xBL[2]) * sin(xBL[3])
+    zc = xBL[1] * cos(xBL[2])
+    return [xc, yc, zc]
+end
+
 # transforms a set of harmonic coordinates to BL where xH = [xH, yH, zH]
 function xHtoBL(xH::AbstractVector{Float64}, a::Float64)
     r = sqrt(xH[1]^2 + xH[2]^2 + xH[3]^2)

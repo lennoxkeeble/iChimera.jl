@@ -242,7 +242,7 @@ function EMRI(
         PhiS, ThetaK, PhiK, ThetaObs, PhiObs, dt_save, path, T_secs, M, reltol, abstol, compute_SF_frac, save_every, save_traj, save_constants, save_fluxes, save_gamma)
 end
 
-function compute_inspiral(emri; JIT::Bool = false)
+function compute_inspiral(emri; JIT::Bool = false, rr_model::Union{Symbol, AbstractString}=:chimera)
     a = emri.a
     p = emri.p
     e = emri.e
@@ -279,37 +279,37 @@ function compute_inspiral(emri; JIT::Bool = false)
         compute_fluxes = compute_SF_frac * minimum(@. 2π /Ω[2:3])
     end
 
-    Inspiral.compute_inspiral(emri.a, emri.p, emri.e, emri.θmin, emri.sign_Lz, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, compute_fluxes, t_max_M, dt_save_M, emri.save_every, emri.reltol, emri.abstol, emri.OnePN, emri.TwoPN, emri.TwoPointFivePN; data_path=emri.path, JIT=JIT, lmax_mass_fluxes=emri.lmax_mass_fluxes, lmax_current_fluxes=emri.lmax_current_fluxes, save_traj=emri.save_traj, save_constants=emri.save_constants, save_fluxes=emri.save_fluxes, save_gamma=emri.save_gamma)
+    Inspiral.compute_inspiral(emri.a, emri.p, emri.e, emri.θmin, emri.sign_Lz, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, compute_fluxes, t_max_M, dt_save_M, emri.save_every, emri.reltol, emri.abstol, emri.OnePN, emri.TwoPN, emri.TwoPointFivePN, emri.coordinates; data_path=emri.path, JIT=JIT, lmax_mass_fluxes=emri.lmax_mass_fluxes, lmax_current_fluxes=emri.lmax_current_fluxes, save_traj=emri.save_traj, save_constants=emri.save_constants, save_fluxes=emri.save_fluxes, save_gamma=emri.save_gamma, rr_model=rr_model)
 end
 
-function compute_waveform(emri)
+function compute_waveform(emri; rr_model::Union{Symbol, AbstractString}=:chimera)
     if emri.frame == "SSB"
-        Inspiral.compute_waveform(obs_distance, emri.ThetaS, emri.PhiS, emri.ThetaK, emri.PhiK, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path);
+        Inspiral.compute_waveform(obs_distance, emri.ThetaS, emri.PhiS, emri.ThetaK, emri.PhiK, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path; rr_model=rr_model);
     elseif emri.frame == "Source"
-        Inspiral.compute_waveform(obs_distance, emri.ThetaObs, emri.PhiObs, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path);
+        Inspiral.compute_waveform(obs_distance, emri.ThetaObs, emri.PhiObs, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path; rr_model=rr_model);
     end
 end
 
-function load_trajectory(emri)
-    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path)
+function load_trajectory(emri; rr_model::Union{Symbol, AbstractString}=:chimera)
+    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path; rr_model=rr_model)
     return Inspiral.load_trajectory(fname)
 end
 
-function load_constants_of_motion(emri)
-    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path)
+function load_constants_of_motion(emri; rr_model::Union{Symbol, AbstractString}=:chimera)
+    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path; rr_model=rr_model)
     return Inspiral.load_constants_of_motion(fname)
 end
 
-function load_fluxes(emri)
-    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path)
+function load_fluxes(emri; rr_model::Union{Symbol, AbstractString}=:chimera)
+    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path; rr_model=rr_model)
     return Inspiral.load_fluxes(fname)
 end
 
-function load_waveform(emri)
+function load_waveform(emri; rr_model::Union{Symbol, AbstractString}=:chimera)
     if emri.frame == "SSB"
-        return Inspiral.load_waveform(obs_distance, emri.ThetaS, emri.PhiS, emri.ThetaK, emri.PhiK, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path);
+        return Inspiral.load_waveform(obs_distance, emri.ThetaS, emri.PhiS, emri.ThetaK, emri.PhiK, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path; rr_model=rr_model);
     elseif emri.frame == "Source"
-        return Inspiral.load_waveform(obs_distance, emri.ThetaObs, emri.PhiObs, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path);
+        return Inspiral.load_waveform(obs_distance, emri.ThetaObs, emri.PhiObs, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path; rr_model=rr_model);
     end
 end
 

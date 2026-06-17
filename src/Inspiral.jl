@@ -10,12 +10,14 @@ using ..SymmetricTensors
 using ..Kerr
 using ..ConstantsOfMotion
 using ..BLTimeGeodesics
+using ..HarmonicRRAcceleration
 using ..SelfAccelerationHarmonic
 using ..SelfAccelerationHarmonicIW
 using ..SelfAccelerationCartesian
 using ..EvolveConstants
 using ..Waveform
 using ..HarmonicCoordDerivs
+using ..HarmonicCoords
 using ..CartesianCoords
 using ..CoordinateDerivs
 using ..MultipoleDerivs
@@ -26,6 +28,92 @@ Z_1(a::Float64) = 1 + (1 - a^2 / 1.0)^(1/3) * ((1 + a)^(1/3) + (1 - a)^(1/3))
 Z_2(a::Float64) = sqrt(3 * a^2 + Z_1(a)^2)
 LSO_r(a::Float64) = (3 + Z_2(a) - sqrt((3 - Z_1(a)) * (3 + Z_1(a) * 2 * Z_2(a))))   # retrograde LSO
 LSO_p(a::Float64) = (3 + Z_2(a) + sqrt((3 - Z_1(a)) * (3 + Z_1(a) * 2 * Z_2(a))))   # prograde LSO
+
+function normalize_rr_model(rr_model::Symbol)
+    if rr_model === :chimera || rr_model === :harmonic_pn || rr_model === :chimera_bt_to_harmonic
+        return rr_model
+    end
+    throw(ArgumentError("Unsupported rr_model=$(repr(rr_model)). Supported values are :chimera, :harmonic_pn, and :chimera_bt_to_harmonic."))
+end
+
+normalize_rr_model(rr_model::AbstractString) = normalize_rr_model(Symbol(rr_model))
+
+rr_model_filename_suffix(rr_model::Union{Symbol, AbstractString}) = begin
+    rr_model_sym = normalize_rr_model(rr_model)
+    rr_model_sym === :chimera ? "" :
+    rr_model_sym === :harmonic_pn ? "_rrharmonicpn" :
+    rr_model_sym === :chimera_bt_to_harmonic ? "_rrchimeraharmonicfix" :
+    error("Unhandled rr_model $(repr(rr_model_sym)).")
+end
+
+function coordinate_module(coordinates::String)
+    if coordinates == "harmonic"
+        return HarmonicCoords
+    elseif coordinates == "cartesian"
+        return CartesianCoords
+    end
+    throw(ArgumentError("Unsupported coordinates=$(repr(coordinates)). Supported values are \"harmonic\" and \"cartesian\"."))
+end
+
+function compute_chimera_self_accel!(aSF_H::AbstractVector,
+                                     aSF_BL::AbstractVector,
+                                     xH::AbstractVector,
+                                     dxH_dt::AbstractVector,
+                                     d2xH_dt::AbstractVector,
+                                     d3xH_dt::AbstractVector,
+                                     xBL::AbstractVector,
+                                     spin::Real,
+                                     q::Real,
+                                     Vrr::Real,
+                                     ∂Vrr_∂t::Real,
+                                     Virr::AbstractVector,
+                                     ∂Vrr_∂a::AbstractVector,
+                                     ∂Virr_∂t::AbstractVector,
+                                     ∂Virr_∂a::AbstractMatrix;
+                                     coordinates::String)
+    vH = dxH_dt
+    aH = d2xH_dt
+    rH = SelfAccelerationHarmonic.norm_3d(xH)
+    v = SelfAccelerationHarmonic.norm_3d(vH)
+
+    if coordinates == "harmonic"
+        SelfAccelerationHarmonicIW.aRRα(aSF_H, aSF_BL, xH, v, vH, aH, d3xH_dt, xBL, rH, spin, q, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a; alpha_current=4.0, beta_current=5.0, alpha_target=4.0, beta_target=5.0, gauge_sign=-1.0, eps_fd=1.0e-5 * max(1.0, SelfAccelerationHarmonic.norm_3d(xH)))
+    elseif coordinates == "cartesian"
+        SelfAccelerationCartesian.aRRα(aSF_H, aSF_BL, xH, v, vH, xBL, rH, spin, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a)
+    else
+        throw(ArgumentError("Unsupported coordinates=$(repr(coordinates))."))
+    end
+
+    return aSF_BL
+end
+
+function apply_bt_to_harmonic_rr_correction!(aSF_H::AbstractVector,
+                                             aSF_BL::AbstractVector,
+                                             aSF_corr_H::AbstractVector,
+                                             aSF_corr_BL::AbstractVector,
+                                             Acoord_corr_H::AbstractVector,
+                                             Acoord_BT::AbstractVector,
+                                             xH::AbstractVector,
+                                             dxH_dt::AbstractVector,
+                                             spin::Real,
+                                             q::Real;
+                                             include25::Bool=true,
+                                             include35::Bool=true)
+    # Hybrid Chimera model: add only the local PN BT->harmonic correction to
+    # the already-computed Chimera four-acceleration, rather than replacing
+    # the strong-field Chimera RR force outright.
+    HarmonicRRAcceleration.rr_bt_to_harmonic_correction!(Acoord_corr_H, Acoord_BT, xH, dxH_dt, q; include25=include25, include35=include35)
+    gH = HarmonicCoords.g_μν_H(xH, spin)
+    HarmonicRRAcceleration.lift_coord_accel_to_four!(aSF_corr_H, Acoord_corr_H, dxH_dt, gH)
+    HarmonicRRAcceleration.four_accel_H_to_BL!(aSF_corr_BL, aSF_corr_H, xH, spin)
+
+    @inbounds for i in eachindex(aSF_H)
+        aSF_H[i] += aSF_corr_H[i]
+        aSF_BL[i] += aSF_corr_BL[i]
+    end
+
+    return aSF_BL
+end
 
 """
     compute_inspiral(args...)
@@ -57,9 +145,14 @@ Evolve inspiral with Boyer-Lindquist coordinate time parameterization and fully 
 - `save_every::Int64`: number of points in each chunk of data when saving to file.
 """
 
-function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, sign_Lz::Int64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, compute_SF::Float64, tInspiral::Float64, dt_save::Float64, save_every::Int64, reltol::Float64=1e-14, abstol::Float64=1e-14, OnePN::Float64=1.0, TwoPN::Float64=1.0, TwoPointFivePN::Float64=1.0, coordinates::String="cartesian"; data_path::String="Data/", JIT::Bool=false, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, save_traj::Bool, save_constants::Bool, save_fluxes::Bool, save_gamma::Bool, maxiters::Int64=Int(1e8))
+function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, sign_Lz::Int64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, compute_SF::Float64, tInspiral::Float64, dt_save::Float64, save_every::Int64, reltol::Float64=1e-14, abstol::Float64=1e-14, OnePN::Float64=1.0, TwoPN::Float64=1.0, TwoPointFivePN::Float64=1.0, coordinates::String="cartesian"; data_path::String="Data/", JIT::Bool=false, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, save_traj::Bool, save_constants::Bool, save_fluxes::Bool, save_gamma::Bool, maxiters::Int64=Int(1e8), rr_model::Union{Symbol, AbstractString}=:chimera)
+    rr_model_sym = normalize_rr_model(rr_model)
+    if rr_model_sym === :chimera_bt_to_harmonic && coordinates != "harmonic"
+        error("rr_model=:chimera_bt_to_harmonic currently requires coordinates=\"harmonic\" because the BT->harmonic correction is defined relative to the harmonic-state Chimera path.")
+    end
+
     # create solution file
-    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path)
+    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path; rr_model=rr_model_sym)
     
     if isfile(sol_filename)
         rm(sol_filename)
@@ -128,6 +221,11 @@ function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, si
     # arrays for self-force computation
     aSF_BL = @MArray zeros(4)
     aSF_H = @MArray zeros(4)
+    Acoord_H = @MArray zeros(3)
+    Acoord_BT = @MArray zeros(3)
+    Acoord_corr_H = @MArray zeros(3)
+    aSF_corr_H = @MArray zeros(4)
+    aSF_corr_BL = @MArray zeros(4)
     Virr = @MArray zeros(3)
     ∂Vrr_∂a = @MArray zeros(3)
     ∂Virr_∂t = @MArray zeros(3)
@@ -317,14 +415,23 @@ function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, si
             v2power = 0;
             Vrr, ∂Vrr_∂t = RRPotentials.compute_RR_potentials!(Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a, xH, dxH_dt, d2xH_dt, Mij5, Mij6, Mij7, Mij8, dxmMij5, dxmMij6, dxmMij7, Mijk7, Mijk8, dxmMijk7, Sij5, Sij6, dxmSij5, v2power);
 
-            vH .= dxH_dt
-            aH .= d2xH_dt
-            rH = SelfAccelerationHarmonic.norm_3d(xH);
-            v = SelfAccelerationHarmonic.norm_3d(vH);
-            if coordinates == "harmonic"
-                SelfAccelerationHarmonicIW.aRRα(aSF_H, aSF_BL, xH, v, vH, aH, d3xH_dt, xBL, rH, a, q, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a; alpha_current=4.0, beta_current=5.0, alpha_target=4.0, beta_target=5.0, gauge_sign=-1.0, eps_fd=1.0e-5 * max(1.0, SelfAccelerationHarmonic.norm_3d(xH)))
-            elseif coordinates == "cartesian"
-                SelfAccelerationCartesian.aRRα(aSF_H, aSF_BL, xH, v, vH, xBL, rH, a, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a)
+            if rr_model_sym === :chimera
+                compute_chimera_self_accel!(aSF_H, aSF_BL, xH, dxH_dt, d2xH_dt, d3xH_dt, xBL, a, q, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a; coordinates=coordinates)
+            elseif rr_model_sym === :harmonic_pn
+                # The harmonic-PN branch keeps the old multipole / RR-potential
+                # machinery untouched for now, but the local RR acceleration is
+                # sourced directly from the harmonic-coordinate 2.5PN + 3.5PN
+                # formula rather than the Chimera RR potentials. When
+                # coordinates="cartesian", this evaluates the same formula on
+                # the Cartesian coordinate state as a diagnostic comparison.
+                coord_mod = coordinate_module(coordinates)
+                HarmonicRRAcceleration.rr_harmonic_accel!(Acoord_H, xH, dxH_dt, q; include25=true, include35=true)
+                gH = coord_mod.g_μν_H(xH, a)
+                HarmonicRRAcceleration.lift_coord_accel_to_four!(aSF_H, Acoord_H, dxH_dt, gH)
+                HarmonicRRAcceleration.four_accel_coord_to_BL!(aSF_BL, aSF_H, xH, a; coord_system=coordinates)
+            elseif rr_model_sym === :chimera_bt_to_harmonic
+                compute_chimera_self_accel!(aSF_H, aSF_BL, xH, dxH_dt, d2xH_dt, d3xH_dt, xBL, a, q, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a; coordinates=coordinates)
+                apply_bt_to_harmonic_rr_correction!(aSF_H, aSF_BL, aSF_corr_H, aSF_corr_BL, Acoord_corr_H, Acoord_BT, xH, dxH_dt, a, q; include25=true, include35=true)
             end
 
             # update orbital constants and fluxes — function takes as argument the fluxes computed at the end of the previous geodesic (which overlaps with the start of the current geodesic piece) in order to update the fluxes using the trapezium rule
@@ -468,37 +575,45 @@ function evolve_inspiral!(integrator, h::Number, tt::Vector{<:Number}, dt_dτ::V
     end
 end
 
-function solution_fname(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, coordinates::String, data_path::String)
-    return data_path * "EMRI_sol_a_$(a)_p_$(p)_e_$(e)_θmin_$(round(θmin, sigdigits=3))_q_$(q)_psi0_$(round(psi_0, sigdigits=3))_chi0_$(round(chi_0, sigdigits=3))_phi0_$(round(phi_0, sigdigits=3))_BL_time_lmax_mass_fluxes_$(lmax_mass_fluxes)_lmax_current_fluxes_$(lmax_current_fluxes)_" * coordinates * ".h5"
+function solution_fname(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, coordinates::String, data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
+    suffix = rr_model_filename_suffix(rr_model)
+    return data_path * "EMRI_sol_a_$(a)_p_$(p)_e_$(e)_θmin_$(round(θmin, sigdigits=3))_q_$(q)_psi0_$(round(psi_0, sigdigits=3))_chi0_$(round(chi_0, sigdigits=3))_phi0_$(round(phi_0, sigdigits=3))_BL_time_lmax_mass_fluxes_$(lmax_mass_fluxes)_lmax_current_fluxes_$(lmax_current_fluxes)_" * coordinates * suffix * ".h5"
 end
 
-function waveform_fname(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, obs_distance::Float64, ThetaSource::Float64, PhiSource::Float64, ThetaKerr::Float64, PhiKerr::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String, data_path::String)
-    return data_path * "Waveform_a_$(a)_p_$(p)_e_$(e)_θmin_$(round(θmin, sigdigits=3))_q_$(q)_psi0_$(round(psi_0, sigdigits=3))_chi0_$(round(chi_0, sigdigits=3))_phi0_$(round(phi_0, sigdigits=3))_obsDist_$(round(obs_distance, sigdigits=3))_ThetaS_$(round(ThetaSource, sigdigits=3))_PhiS_$(round(PhiSource, sigdigits=3))_ThetaK_$(round(ThetaKerr, sigdigits=3))_PhiK_$(round(PhiKerr, sigdigits=3))_BL_time_lmax_mass_fluxes_$(lmax_mass_fluxes)_lmax_current_fluxes_$(lmax_current_fluxes)_lmax_mass_waveform_$(lmax_mass_waveform)_lmax_current_waveform_$(lmax_current_waveform)_" * coordinates * ".h5"
+function waveform_fname(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, obs_distance::Float64, ThetaSource::Float64, PhiSource::Float64, ThetaKerr::Float64, PhiKerr::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String, data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
+    suffix = rr_model_filename_suffix(rr_model)
+    return data_path * "Waveform_a_$(a)_p_$(p)_e_$(e)_θmin_$(round(θmin, sigdigits=3))_q_$(q)_psi0_$(round(psi_0, sigdigits=3))_chi0_$(round(chi_0, sigdigits=3))_phi0_$(round(phi_0, sigdigits=3))_obsDist_$(round(obs_distance, sigdigits=3))_ThetaS_$(round(ThetaSource, sigdigits=3))_PhiS_$(round(PhiSource, sigdigits=3))_ThetaK_$(round(ThetaKerr, sigdigits=3))_PhiK_$(round(PhiKerr, sigdigits=3))_BL_time_lmax_mass_fluxes_$(lmax_mass_fluxes)_lmax_current_fluxes_$(lmax_current_fluxes)_lmax_mass_waveform_$(lmax_mass_waveform)_lmax_current_waveform_$(lmax_current_waveform)_" * coordinates * suffix * ".h5"
 end
 
-function waveform_fname(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, obs_distance::Float64, ThetaObs::Float64, PhiObs::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String, data_path::String)
-    return data_path * "Waveform_a_$(a)_p_$(p)_e_$(e)_θmin_$(round(θmin, sigdigits=3))_q_$(q)_psi0_$(round(psi_0, sigdigits=3))_chi0_$(round(chi_0, sigdigits=3))_phi0_$(round(phi_0, sigdigits=3))_obsDist_$(round(obs_distance, sigdigits=3))_ThetaObs_$(round(ThetaObs, sigdigits=3))_PhiObs_$(round(PhiObs, sigdigits=3))_BL_time_lmax_mass_fluxes_$(lmax_mass_fluxes)_lmax_current_fluxes_$(lmax_current_fluxes)_lmax_mass_waveform_$(lmax_mass_waveform)_lmax_current_waveform_$(lmax_current_waveform)_" * coordinates * ".h5"
+function waveform_fname(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, obs_distance::Float64, ThetaObs::Float64, PhiObs::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String, data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
+    suffix = rr_model_filename_suffix(rr_model)
+    return data_path * "Waveform_a_$(a)_p_$(p)_e_$(e)_θmin_$(round(θmin, sigdigits=3))_q_$(q)_psi0_$(round(psi_0, sigdigits=3))_chi0_$(round(chi_0, sigdigits=3))_phi0_$(round(phi_0, sigdigits=3))_obsDist_$(round(obs_distance, sigdigits=3))_ThetaObs_$(round(ThetaObs, sigdigits=3))_PhiObs_$(round(PhiObs, sigdigits=3))_BL_time_lmax_mass_fluxes_$(lmax_mass_fluxes)_lmax_current_fluxes_$(lmax_current_fluxes)_lmax_mass_waveform_$(lmax_mass_waveform)_lmax_current_waveform_$(lmax_current_waveform)_" * coordinates * suffix * ".h5"
 end
 
-function load_trajectory(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, coordinates::String, data_path::String)
-    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path)
+function load_trajectory(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, coordinates::String, data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
+    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path; rr_model=rr_model)
     return Inspiral.load_trajectory(sol_filename)
 end
 
-function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, coordinates::String, data_path::String)
-    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path)
+function load_constants_of_motion(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, coordinates::String, data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
+    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path; rr_model=rr_model)
     return Inspiral.load_constants_of_motion(sol_filename)
 end
 
-function compute_waveform(obs_distance::Float64, ThetaSource::Float64, PhiSource::Float64, ThetaKerr::Float64, PhiKerr::Float64, a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String,  data_path::String)
+function load_fluxes(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, coordinates::String, data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
+    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path; rr_model=rr_model)
+    return Inspiral.load_fluxes(sol_filename)
+end
+
+function compute_waveform(obs_distance::Float64, ThetaSource::Float64, PhiSource::Float64, ThetaKerr::Float64, PhiKerr::Float64, a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String,  data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
     # load waveform multipole moments
-    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path)
+    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path; rr_model=rr_model)
     t, Mij2, Mijk3, Mijkl4, Sij2, Sijk3 = Inspiral.load_waveform_moments(sol_filename, lmax_mass_waveform, lmax_current_waveform)
     num_points = length(Mij2[1, 1]);
     h_plus, h_cross = Waveform.compute_wave_polarizations(num_points, obs_distance, deg2rad(ThetaSource), deg2rad(PhiSource), deg2rad(ThetaKerr), deg2rad(PhiKerr), Mij2, Mijk3, Mijkl4, Sij2, Sijk3, q)
 
     # save waveform to file
-    wave_filename=waveform_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, obs_distance, ThetaSource, PhiSource, ThetaKerr, PhiKerr, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, data_path)
+    wave_filename=waveform_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, obs_distance, ThetaSource, PhiSource, ThetaKerr, PhiKerr, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, data_path; rr_model=rr_model)
     h5open(wave_filename, "w") do file
         file["t"] = t
         file["hplus"] = h_plus
@@ -507,15 +622,15 @@ function compute_waveform(obs_distance::Float64, ThetaSource::Float64, PhiSource
     println("File created: " * wave_filename)
 end
 
-function compute_waveform(obs_distance::Float64, ThetaObs::Float64, PhiObs::Float64, a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String,  data_path::String)
+function compute_waveform(obs_distance::Float64, ThetaObs::Float64, PhiObs::Float64, a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String,  data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
     # load waveform multipole moments
-    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path)
+    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path; rr_model=rr_model)
     t, Mij2, Mijk3, Mijkl4, Sij2, Sijk3 = Inspiral.load_waveform_moments(sol_filename, lmax_mass_waveform, lmax_current_waveform)
     num_points = length(Mij2[1, 1]);
     h_plus, h_cross = Waveform.compute_wave_polarizations(num_points, obs_distance, deg2rad(ThetaObs), deg2rad(PhiObs), Mij2, Mijk3, Mijkl4, Sij2, Sijk3, q)
 
     # save waveform to file
-    wave_filename=waveform_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, obs_distance, ThetaObs, PhiObs, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, data_path)
+    wave_filename=waveform_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, obs_distance, ThetaObs, PhiObs, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, data_path; rr_model=rr_model)
     h5open(wave_filename, "w") do file
         file["t"] = t
         file["hplus"] = h_plus
@@ -524,9 +639,9 @@ function compute_waveform(obs_distance::Float64, ThetaObs::Float64, PhiObs::Floa
     println("File created: " * wave_filename)
 end
 
-function load_waveform(obs_distance::Float64, ThetaSource::Float64, PhiSource::Float64, ThetaKerr::Float64, PhiKerr::Float64, a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String,  data_path::String)
+function load_waveform(obs_distance::Float64, ThetaSource::Float64, PhiSource::Float64, ThetaKerr::Float64, PhiKerr::Float64, a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String,  data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
     # save waveform to file
-    wave_filename=waveform_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, obs_distance, ThetaSource, PhiSource, ThetaKerr, PhiKerr, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, data_path)
+    wave_filename=waveform_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, obs_distance, ThetaSource, PhiSource, ThetaKerr, PhiKerr, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, data_path; rr_model=rr_model)
     file = h5open(wave_filename, "r")
     t = file["t"][:]
     h_plus = file["hplus"][:]
@@ -535,9 +650,9 @@ function load_waveform(obs_distance::Float64, ThetaSource::Float64, PhiSource::F
     return t, h_plus, h_cross    
 end
 
-function load_waveform(obs_distance::Float64, ThetaObs::Float64, PhiObs::Float64, a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String,  data_path::String)
+function load_waveform(obs_distance::Float64, ThetaObs::Float64, PhiObs::Float64, a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, lmax_mass_waveform::Int64, lmax_current_waveform::Int64, coordinates::String,  data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
     # save waveform to file
-    wave_filename=waveform_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, obs_distance, ThetaObs, PhiObs, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, data_path)
+    wave_filename=waveform_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, obs_distance, ThetaObs, PhiObs, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, data_path; rr_model=rr_model)
     file = h5open(wave_filename, "r")
     t = file["t"][:]
     h_plus = file["hplus"][:]
@@ -547,8 +662,8 @@ function load_waveform(obs_distance::Float64, ThetaObs::Float64, PhiObs::Float64
 end
 
 # useful for dummy runs (e.g., for resonances to estimate the duration of time needed by computing the time derivative of the fundamental frequencies)
-function delete_EMRI_data(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, coordinates::String, data_path::String)
-    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path)
+function delete_EMRI_data(a::Float64, p::Float64, e::Float64, θmin::Float64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, coordinates::String, data_path::String; rr_model::Union{Symbol, AbstractString}=:chimera)
+    sol_filename=solution_fname(a, p, e, θmin, q, psi_0, chi_0, phi_0, lmax_mass_fluxes, lmax_current_fluxes, coordinates, data_path; rr_model=rr_model)
     rm(sol_filename)
 end
 

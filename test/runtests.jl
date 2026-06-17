@@ -464,6 +464,8 @@ iChimera.SelfAccelerationCartesian.aRRα(aSF_H, aSF_BL, xH, v, vH, xBL, rH, a, V
     # Write your tests here.
 end
 
+include("test_harmonic_rr_acceleration.jl")
+
 
 include("/Users/lennoxkeeble/KerrMetricDedoner.jl")
 

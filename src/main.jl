@@ -29,6 +29,7 @@ include("CartesianDerivs.jl");
 include("CoordinateDerivs.jl");
 include("MultipoleDerivs.jl");
 include("RRPotentials.jl");
+include("HarmonicRRAcceleration.jl");
 include("SelfAccelerationCartesian.jl");
 include("SelfAccelerationCartesian2.jl");
 include("SelfAccelerationHarmonic.jl");
