@@ -199,20 +199,20 @@ function rr_bt_accel!(Acoord_BT::AbstractVector, X::AbstractVector, V::AbstractV
         pref35 = 8 * G^2 * m^2 * ν / (5 * c^7 * R^3)
 
         A7 =
-            -(87 / 14 - 48 * ν) * V2^2 -
+            (87 / 14 - 48 * ν) * V2^2 -
             (5379 / 28 + (136 / 3) * ν) * V2 * u +
-            (25 + (5 / 2) * ν) * V2 * Rdot^2 +
+            (25 / 2) * (1 + 5 * ν) * V2 * Rdot^2 +
             (1353 / 4 + 133 * ν) * Rdot^2 * u -
-            (35 / 2 + (55 / 2) * ν) * Rdot^4 +
+            (35 / 2) * (1 - ν) * Rdot^4 +
             (160 / 7 + (55 / 3) * ν) * u^2
 
         B7 =
             -(27 / 14) * V2^2 -
             (4861 / 84 + (58 / 3) * ν) * V2 * u +
-            (13 - (37 / 2) * ν) * V2 * Rdot^2 +
-            (776 / 3 + 97 * ν) * Rdot^2 * u -
-            (2591 / 12 + (55 / 3) * ν) * Rdot^4 +
-            (1 / 2 + (55 / 7) * ν) * u^2
+            (3 / 2) * (13 - 37 * ν) * V2 * Rdot^2 +
+            (2591 / 12 + 97 * ν) * Rdot^2 * u -
+            (25 / 2) * (1 - 7 * ν) * Rdot^4 +
+            (1 / 3) * (776 / 7 + 55 * ν) * u^2
 
         Acoord_BT[1] += pref35 * (N1 * (A7 * Rdot) - V[1] * B7)
         Acoord_BT[2] += pref35 * (N2 * (A7 * Rdot) - V[2] * B7)
@@ -276,6 +276,129 @@ function rr_bt_to_harmonic_correction(X::AbstractVector, V::AbstractVector, q::R
     Acoord_BT = MVector{3, T}(undef)
     rr_bt_to_harmonic_correction!(Acoord_corr_H, Acoord_BT, X, V, q; M=M, G=G, c=c, include25=include25, include35=include35)
     return SVector{3, T}(Acoord_corr_H)
+end
+
+"""
+    rr_bt_to_harmonic_correction_four_accel_BL!(a4_corr_BL, a4_corr_H, Acoord_corr_H, Acoord_BT, X, V, spin, q; ...)
+
+Fill `a4_corr_BL` with the approach-2 correction
+
+    δa_BL = lift_to_BL(a_PN,H - a_PN,BT)
+
+using the harmonic-coordinate position `X` and coordinate velocity `V`. The
+scratch arrays `a4_corr_H`, `Acoord_corr_H`, and `Acoord_BT` are supplied by the
+caller to avoid allocations in local-flux loops. This function computes only
+the additive correction; it does not recompute the Chimera contribution.
+"""
+function rr_bt_to_harmonic_correction_four_accel_BL!(a4_corr_BL::AbstractVector,
+                                                     a4_corr_H::AbstractVector,
+                                                     Acoord_corr_H::AbstractVector,
+                                                     Acoord_BT::AbstractVector,
+                                                     X::AbstractVector,
+                                                     V::AbstractVector,
+                                                     spin::Real,
+                                                     q::Real;
+                                                     M::Real=1.0,
+                                                     G::Real=1.0,
+                                                     c::Real=1.0,
+                                                     include25::Bool=true,
+                                                     include35::Bool=true)
+    _check_four_vector("a4_corr_BL", a4_corr_BL)
+    _check_four_vector("a4_corr_H", a4_corr_H)
+    _check_spatial_vector("Acoord_corr_H", Acoord_corr_H)
+    _check_spatial_vector("Acoord_BT", Acoord_BT)
+    _check_spatial_vector("X", X)
+    _check_spatial_vector("V", V)
+
+    rr_bt_to_harmonic_correction!(Acoord_corr_H, Acoord_BT, X, V, q; M=M, G=G, c=c, include25=include25, include35=include35)
+    gH = HarmonicCoords.g_μν_H(X, spin)
+    lift_coord_accel_to_four!(a4_corr_H, Acoord_corr_H, V, gH)
+    four_accel_H_to_BL!(a4_corr_BL, a4_corr_H, X, spin)
+    return a4_corr_BL
+end
+
+function rr_bt_to_harmonic_correction_four_accel_BL(X::AbstractVector,
+                                                    V::AbstractVector,
+                                                    spin::Real,
+                                                    q::Real;
+                                                    M::Real=1.0,
+                                                    G::Real=1.0,
+                                                    c::Real=1.0,
+                                                    include25::Bool=true,
+                                                    include35::Bool=true)
+    _check_spatial_vector("X", X)
+    _check_spatial_vector("V", V)
+
+    T = promote_type(typeof(float(X[1])), typeof(float(V[1])), typeof(float(spin)), typeof(float(q)), typeof(float(M)), typeof(float(G)), typeof(float(c)))
+    a4_corr_BL = MVector{4, T}(undef)
+    a4_corr_H = MVector{4, T}(undef)
+    Acoord_corr_H = MVector{3, T}(undef)
+    Acoord_BT = MVector{3, T}(undef)
+
+    rr_bt_to_harmonic_correction_four_accel_BL!(
+        a4_corr_BL,
+        a4_corr_H,
+        Acoord_corr_H,
+        Acoord_BT,
+        X,
+        V,
+        spin,
+        q;
+        M=M,
+        G=G,
+        c=c,
+        include25=include25,
+        include35=include35,
+    )
+    return SVector{4, T}(a4_corr_BL)
+end
+
+"""
+    add_bt_to_harmonic_correction_four_accel_BL!(a4_fixed_BL, a4_chimera_BL, ...)
+
+Fill `a4_fixed_BL` with `a4_chimera_BL + δa_BL`, where `δa_BL` is the
+approach-2 BT-to-harmonic correction. This is intended for post-processing
+local Chimera fluxes without recomputing the Chimera self-force.
+"""
+function add_bt_to_harmonic_correction_four_accel_BL!(a4_fixed_BL::AbstractVector,
+                                                      a4_chimera_BL::AbstractVector,
+                                                      a4_corr_BL::AbstractVector,
+                                                      a4_corr_H::AbstractVector,
+                                                      Acoord_corr_H::AbstractVector,
+                                                      Acoord_BT::AbstractVector,
+                                                      X::AbstractVector,
+                                                      V::AbstractVector,
+                                                      spin::Real,
+                                                      q::Real;
+                                                      M::Real=1.0,
+                                                      G::Real=1.0,
+                                                      c::Real=1.0,
+                                                      include25::Bool=true,
+                                                      include35::Bool=true)
+    _check_four_vector("a4_fixed_BL", a4_fixed_BL)
+    _check_four_vector("a4_chimera_BL", a4_chimera_BL)
+
+    rr_bt_to_harmonic_correction_four_accel_BL!(
+        a4_corr_BL,
+        a4_corr_H,
+        Acoord_corr_H,
+        Acoord_BT,
+        X,
+        V,
+        spin,
+        q;
+        M=M,
+        G=G,
+        c=c,
+        include25=include25,
+        include35=include35,
+    )
+
+    @inbounds for i in 1:4
+        a4_fixed_BL[i] = a4_chimera_BL[i] + a4_corr_BL[i]
+    end
+
+    return a4_fixed_BL
 end
 
 """

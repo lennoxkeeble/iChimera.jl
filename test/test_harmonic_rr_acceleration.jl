@@ -86,6 +86,26 @@ end
     @test Δ25 ≈ expectedΔ25
     @test Δ25 ≈ A25H - A25BT
     @test_throws DomainError HRR.rr_bt_accel(zeros(3), V, q)
+
+    A35BT = HRR.rr_bt_accel(X, V, q; include25=false, include35=true)
+    pref35BT = (8 / 5) * m^2 * ν / R^3
+    A7 =
+        (87 / 14 - 48 * ν) * V2^2 -
+        (5379 / 28 + (136 / 3) * ν) * V2 * u +
+        (25 / 2) * (1 + 5 * ν) * V2 * Rdot^2 +
+        (1353 / 4 + 133 * ν) * Rdot^2 * u -
+        (35 / 2) * (1 - ν) * Rdot^4 +
+        (160 / 7 + (55 / 3) * ν) * u^2
+    B7 =
+        -(27 / 14) * V2^2 -
+        (4861 / 84 + (58 / 3) * ν) * V2 * u +
+        (3 / 2) * (13 - 37 * ν) * V2 * Rdot^2 +
+        (2591 / 12 + 97 * ν) * Rdot^2 * u -
+        (25 / 2) * (1 - 7 * ν) * Rdot^4 +
+        (1 / 3) * (776 / 7 + 55 * ν) * u^2
+    expected35BT = pref35BT * (Rdot * A7 * N - B7 * V)
+
+    @test A35BT ≈ expected35BT
 end
 
 @testset "Harmonic RR lift and transform" begin
@@ -105,6 +125,7 @@ end
     @test HRR.coord_accel_from_four(a4_flat, Vflat, Γflat) ≈ Acoord
 
     spin = 0.3
+    q = 1.0e-5
     xBL = @SVector [25.0, π / 3, π / 4]
     xH = iChimera.HarmonicCoords.xBLtoH(xBL, spin)
     Vweak = @SVector [1.0e-3, -7.0e-4, 5.0e-4]
@@ -123,6 +144,31 @@ end
     @test trial_a4_BL[1] == trial_a4_H[1]
     @test trial_a4_BL[2:4] ≈ iChimera.HarmonicCoords.aHtoBL(xH, zeros(3), collect(trial_a4_H[2:4]), spin)
     @test HRR.four_accel_coord_to_BL(trial_a4_H, xH, spin; coord_system=:harmonic) ≈ trial_a4_BL
+
+    corr_BL = HRR.rr_bt_to_harmonic_correction_four_accel_BL(xH, Vweak, spin, q; include25=true, include35=true)
+    Acoord_corr = HRR.rr_bt_to_harmonic_correction(xH, Vweak, q; include25=true, include35=true)
+    a4_corr_H = HRR.lift_coord_accel_to_four(Acoord_corr, Vweak, gH)
+    @test corr_BL ≈ HRR.four_accel_H_to_BL(a4_corr_H, xH, spin)
+
+    chimera_BL = @SVector [0.01, -0.02, 0.03, -0.04]
+    fixed_BL = MVector{4, Float64}(undef)
+    scratch_corr_BL = MVector{4, Float64}(undef)
+    scratch_corr_H = MVector{4, Float64}(undef)
+    scratch_Acoord_corr = MVector{3, Float64}(undef)
+    scratch_Acoord_BT = MVector{3, Float64}(undef)
+    HRR.add_bt_to_harmonic_correction_four_accel_BL!(
+        fixed_BL,
+        chimera_BL,
+        scratch_corr_BL,
+        scratch_corr_H,
+        scratch_Acoord_corr,
+        scratch_Acoord_BT,
+        xH,
+        Vweak,
+        spin,
+        q,
+    )
+    @test fixed_BL ≈ chimera_BL + corr_BL
 
     xC = @SVector [25.0, -6.0, 8.0]
     Vcart = @SVector [9.0e-4, -6.0e-4, 4.0e-4]

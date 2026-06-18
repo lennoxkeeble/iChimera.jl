@@ -34,7 +34,7 @@ function compute_ρ_derivs!(dρ::AbstractVector{Float64}, r::Float64, a::Float64
     dρ[9] = d9ρ(r, a)
 end
 
-Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = π/2. + atan((M - r)/a) + (a*log((r - rp)/(r - rm)))/(2.0*sqrt(-a^2 + M^2))
+Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = π/2. + atan(M - r, a) + (a*log((r - rp)/(r - rm)))/(2.0*sqrt(-a^2 + M^2))
 
 d1Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = -(a/(a^2 + (M - r)^2)) + (a*(-rm + rp))/(2.0*sqrt(-a^2 + M^2)*(r - rm)*(r - rp))
 
@@ -54,7 +54,7 @@ d8Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (40320*a*(a^6 - 7*a^4*(
 
 d9Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = (-40320*a*(a^8 - 36*a^6*(M - r)^2 + 126*a^4*(M - r)^4 - 84*a^2*(M - r)^6 + 9*(M - r)^8))/(a^2 + (M - r)^2)^9 - (20160*a*(rm^9 + 9*r^8*(rm - rp) - rp^9 + 36*r^7*(-rm^2 + rp^2) + 84*r^6*(rm^3 - rp^3) + 126*r^5*(-rm^4 + rp^4) + 126*r^4*(rm^5 - rp^5) + 84*r^3*(-rm^6 + rp^6) + 36*r^2*(rm^7 - rp^7) + 9*r*(-rm^8 + rp^8)))/(sqrt(-a^2 + M^2)*(r - rm)^9*(r - rp)^9)
 
-# Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = π/2 - atan((-M + r)/a) - (a*log((r - rm)/(r - rp)))/(2.0*sqrt(-a^2 + M^2))
+# Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = π/2 - atan(-M + r, a) - (a*log((r - rm)/(r - rp)))/(2.0*sqrt(-a^2 + M^2))
 
 # d1Φ(r::Float64, a::Float64, rm::Float64, rp::Float64) = -(a/(a^2 + (M - r)^2)) + (a*(-rm + rp))/(2.0*sqrt(-a^2 + M^2)*(r - rm)*(r - rp))
 
