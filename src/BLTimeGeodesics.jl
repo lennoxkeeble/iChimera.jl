@@ -122,7 +122,13 @@ function compute_ODE_params(a::Float64, p::Float64, e::Float64, θmin::Float64, 
 
     # compute roots of radial function R(r)
     zm = cos(θmin)^2
-    zp = C / (a^2 * (1.0-E^2) * zm)    # Eq. E23
+    zp_denom = a^2 * (1.0-E^2) * zm
+    if isapprox(zp_denom, 0.0; atol=1.0e-14)
+        isapprox(C, 0.0; atol=1.0e-14) || throw(ArgumentError("Encountered singular equatorial/degenerate zp with nonzero Carter constant C=$(C)."))
+        zp = 0.0
+    else
+        zp = C / zp_denom    # Eq. E23
+    end
     A = 1.0 / (1.0 - E^2) - (ra + rp) / 2.0    # Eq. E20
     B = a^2 * C / ((1.0 - E^2) * ra * rp)    # Eq. E21
     r3 = A + sqrt(A^2 - B); r4 = A - sqrt(A^2 - B);    # Eq. E19
@@ -190,7 +196,7 @@ function compute_kerr_geodesic(a::Float64, p::Float64, e::Float64, θmin::Float6
 
     tspan = (0.0, tmax); saveat_t = range(start=tspan[1], length=nPoints, stop=tspan[2])
 
-    prob = e == 0.0 ? ODEProblem(HJ_Eqns_circular, ics, tspan, params) : isapprox(θmin, π/2) ? ODEProblem(HJ_Eqns_circular, ics, tspan, params) : ODEProblem(HJ_Eqns, ics, tspan, params);
+    prob = e == 0.0 ? ODEProblem(HJ_Eqns_circular, ics, tspan, params) : isapprox(θmin, π/2) ? ODEProblem(HJ_Eqns_equatorial, ics, tspan, params) : ODEProblem(HJ_Eqns, ics, tspan, params);
     sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t);
 
     # deconstruct solution
@@ -258,6 +264,10 @@ function HJ_Eqns_circular_past(u, params, t)
     @SArray [0.0, -chi_dot(u, params), -phi_dot(u, params)]
 end
 
+function HJ_Eqns_equatorial_past(u, params, t)
+    @SArray [-psi_dot(u, params), 0.0, -phi_dot(u, params)]
+end
+
 # computes trajectory in Kerr characterized by a, p, e, θmin (M=1, μ=1) into the past. Note that we leave the input tmax > 0.
 function compute_kerr_geodesic_past(a::Float64, p::Float64, e::Float64, θmin::Float64, sign_Lz::Int64, nPoints::Int64, specify_params::Bool, tmax::Float64=3000.0, Δti::Float64=1.0, reltol::Float64=1e-10, abstol::Float64=1e-10;
     ics::SVector{3, Float64}=SA[0.0, 0.0, 0.0], E::Float64=0.0, L::Float64=0.0, Q::Float64=0.0, C::Float64=0.0, ra::Float64=0.0, p3::Float64=0.0, p4::Float64=0.0, zp::Float64=0.0, zm::Float64=0.0,
@@ -270,7 +280,7 @@ function compute_kerr_geodesic_past(a::Float64, p::Float64, e::Float64, θmin::F
     params = @SArray [a, E, L, p, e, θmin, p3, p4, zp, zm]
 
     tspan = (0.0, tmax); saveat_t = range(start=tspan[1], length=nPoints, stop=tspan[2])
-    prob = e == 0.0 ? ODEProblem(HJ_Eqns_circular_past, ics, tspan, params) : ODEProblem(HJ_Eqns_past, ics, tspan, params);
+    prob = e == 0.0 ? ODEProblem(HJ_Eqns_circular_past, ics, tspan, params) : isapprox(θmin, π/2) ? ODEProblem(HJ_Eqns_equatorial_past, ics, tspan, params) : ODEProblem(HJ_Eqns_past, ics, tspan, params);
     sol = solve(prob, AutoTsit5(RK4()), adaptive=true, dt=Δti, reltol = reltol, abstol = abstol, saveat=saveat_t);
  
     # deconstruct solution

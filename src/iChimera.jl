@@ -242,7 +242,7 @@ function EMRI(
         PhiS, ThetaK, PhiK, ThetaObs, PhiObs, dt_save, path, T_secs, M, reltol, abstol, compute_SF_frac, save_every, save_traj, save_constants, save_fluxes, save_gamma)
 end
 
-function compute_inspiral(emri; JIT::Bool = false, rr_model::Union{Symbol, AbstractString}=:chimera)
+function compute_inspiral(emri; JIT::Bool = false, rr_model::Union{Symbol, AbstractString}=:chimera, rr_derivative_model::Union{Symbol, AbstractString}=:partial_field)
     a = emri.a
     p = emri.p
     e = emri.e
@@ -279,7 +279,7 @@ function compute_inspiral(emri; JIT::Bool = false, rr_model::Union{Symbol, Abstr
         compute_fluxes = compute_SF_frac * minimum(@. 2π /Ω[2:3])
     end
 
-    Inspiral.compute_inspiral(emri.a, emri.p, emri.e, emri.θmin, emri.sign_Lz, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, compute_fluxes, t_max_M, dt_save_M, emri.save_every, emri.reltol, emri.abstol, emri.OnePN, emri.TwoPN, emri.TwoPointFivePN, emri.coordinates; data_path=emri.path, JIT=JIT, lmax_mass_fluxes=emri.lmax_mass_fluxes, lmax_current_fluxes=emri.lmax_current_fluxes, save_traj=emri.save_traj, save_constants=emri.save_constants, save_fluxes=emri.save_fluxes, save_gamma=emri.save_gamma, rr_model=rr_model)
+    Inspiral.compute_inspiral(emri.a, emri.p, emri.e, emri.θmin, emri.sign_Lz, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, compute_fluxes, t_max_M, dt_save_M, emri.save_every, emri.reltol, emri.abstol, emri.OnePN, emri.TwoPN, emri.TwoPointFivePN, emri.coordinates; data_path=emri.path, JIT=JIT, lmax_mass_fluxes=emri.lmax_mass_fluxes, lmax_current_fluxes=emri.lmax_current_fluxes, save_traj=emri.save_traj, save_constants=emri.save_constants, save_fluxes=emri.save_fluxes, save_gamma=emri.save_gamma, rr_model=rr_model, rr_derivative_model=rr_derivative_model)
 end
 
 function compute_waveform(emri; rr_model::Union{Symbol, AbstractString}=:chimera)

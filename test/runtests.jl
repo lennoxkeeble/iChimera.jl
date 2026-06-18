@@ -256,7 +256,7 @@ Virr = @MVector zeros(3)
 ∂Virr_∂a = @MArray zeros(3, 3)
 
 v2power = 0;
-Vrr, ∂Vrr_∂t = iChimera.RRPotentials.compute_RR_potentials!(Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a, x, dx, d2x, Mij5, Mij6, Mij7, Mij8, dxmMij5, dxmMij6, dxmMij7, Mijk7, Mijk8, dxmMijk7, Sij5, Sij6, dxmSij5, v2power);
+Vrr, ∂Vrr_∂t = iChimera.RRPotentials.compute_RR_potentials!(Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a, x, dx, d2x, Mij5, Mij6, Mij7, Mij8, dxmMij5, dxmMij6, dxmMij7, Mijk7, Mijk8, dxmMijk7, Sij5, Sij6, dxmSij5, v2power; rr_derivative_model=:legacy_worldline);
 
 # load results from explicit MMA computation
 function get_mata_arr(fname::String)
@@ -465,6 +465,7 @@ iChimera.SelfAccelerationCartesian.aRRα(aSF_H, aSF_BL, xH, v, vH, xBL, rH, a, V
 end
 
 include("test_harmonic_rr_acceleration.jl")
+include("test_rr_derivative_model.jl")
 
 
 include("/Users/lennoxkeeble/KerrMetricDedoner.jl")

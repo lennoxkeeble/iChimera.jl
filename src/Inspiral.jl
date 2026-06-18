@@ -145,8 +145,9 @@ Evolve inspiral with Boyer-Lindquist coordinate time parameterization and fully 
 - `save_every::Int64`: number of points in each chunk of data when saving to file.
 """
 
-function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, sign_Lz::Int64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, compute_SF::Float64, tInspiral::Float64, dt_save::Float64, save_every::Int64, reltol::Float64=1e-14, abstol::Float64=1e-14, OnePN::Float64=1.0, TwoPN::Float64=1.0, TwoPointFivePN::Float64=1.0, coordinates::String="cartesian"; data_path::String="Data/", JIT::Bool=false, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, save_traj::Bool, save_constants::Bool, save_fluxes::Bool, save_gamma::Bool, maxiters::Int64=Int(1e8), rr_model::Union{Symbol, AbstractString}=:chimera)
+function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, sign_Lz::Int64, q::Float64, psi_0::Float64, chi_0::Float64, phi_0::Float64, compute_SF::Float64, tInspiral::Float64, dt_save::Float64, save_every::Int64, reltol::Float64=1e-14, abstol::Float64=1e-14, OnePN::Float64=1.0, TwoPN::Float64=1.0, TwoPointFivePN::Float64=1.0, coordinates::String="cartesian"; data_path::String="Data/", JIT::Bool=false, lmax_mass_fluxes::Int64, lmax_current_fluxes::Int64, save_traj::Bool, save_constants::Bool, save_fluxes::Bool, save_gamma::Bool, maxiters::Int64=Int(1e8), rr_model::Union{Symbol, AbstractString}=:chimera, rr_derivative_model::Union{Symbol, AbstractString}=:partial_field)
     rr_model_sym = normalize_rr_model(rr_model)
+    rr_derivative_model_sym = RRPotentials.normalize_rr_derivative_model(rr_derivative_model)
     if rr_model_sym === :chimera_bt_to_harmonic && coordinates != "harmonic"
         error("rr_model=:chimera_bt_to_harmonic currently requires coordinates=\"harmonic\" because the BT->harmonic correction is defined relative to the harmonic-state Chimera path.")
     end
@@ -413,7 +414,7 @@ function compute_inspiral(a::Float64, p::Float64, e::Float64, θmin::Float64, si
             end
 
             v2power = 0;
-            Vrr, ∂Vrr_∂t = RRPotentials.compute_RR_potentials!(Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a, xH, dxH_dt, d2xH_dt, Mij5, Mij6, Mij7, Mij8, dxmMij5, dxmMij6, dxmMij7, Mijk7, Mijk8, dxmMijk7, Sij5, Sij6, dxmSij5, v2power);
+            Vrr, ∂Vrr_∂t = RRPotentials.compute_RR_potentials!(Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a, xH, dxH_dt, d2xH_dt, Mij5, Mij6, Mij7, Mij8, dxmMij5, dxmMij6, dxmMij7, Mijk7, Mijk8, dxmMijk7, Sij5, Sij6, dxmSij5, v2power; rr_derivative_model=rr_derivative_model_sym);
 
             if rr_model_sym === :chimera
                 compute_chimera_self_accel!(aSF_H, aSF_BL, xH, dxH_dt, d2xH_dt, d3xH_dt, xBL, a, q, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a; coordinates=coordinates)
