@@ -1,40 +1,14 @@
 using iChimera
 
-# # (initial) orbital parameters
-# a = 0.98; # spin of the (massive) black hole
-# e = 0.6; # eccentricity
-# mass_ratio = 1e-5; # mass ratio of the small compact object to the central massive black hole
-# p = 7.0; # semi-latus rectum
-
-# inclination = 57.39; # inclination angle (in degrees)
 # (initial) orbital parameters
 a = 0.9; # spin of the (massive) black hole
 e = 0.1; # eccentricity
 mass_ratio = 1e-5; # mass ratio of the small compact object to the central massive black hole
-p = 12.0535; # semi-latus rectum
+p = 7.0; # semi-latus rectum
 
-inclination = 108.862; # inclination angle (in degrees)
+inclination = 57.39; # inclination angle (in degrees)
 sign_Lz = inclination < 90.0 ? 1 : -1; # sign of z-component of angular momentum: +1 for prograde, -1 for retrograde
 inclination_type = "iota"; # type of inclination. "iota": cos(ι) = Lz / sqrt(Lz^2 + C) (Eq. 25 of arXiv:1109.0572v2) or "theta_inc": θ_inc = π/2 - sign(Lz) * θmin (Eq. 1.2 of arXiv:2401.09577v2)
-
-# using Roots
-# iota_to_theta_min2(a, p, e, inclination) * 180 / π
-
-# function iota_to_theta_min2(a::Float64, p::Float64, e::Float64, ι::Float64)
-#     ι = deg2rad(ι)
-#     if ι < 0. || ι > π
-#         throw(DomainError("ι must be in the range [0, 180]"))
-#     else
-#         sign_Lz = ι < π/2 ? +1 : -1;
-#         # inc = ι < π/2 ? ι : π - ι
-#         inc = ι
-#         iota_theta(θmin::Float64)::Float64 = iChimera.InclinationMappings.compute_iota(a, p, e, θmin, sign_Lz) - inc
-#         θmin = find_zero(iota_theta, π/2)
-#     end
-#     return θmin
-# end
-
-# t_max_secs = (10^-3) * iChimera.year / 3.; # maximum orbit evolution time in seconds
 
 t_max_secs = iChimera.year / 10000.; # maximum orbit evolution time in seconds
 Mass_MBH = 1e6 * iChimera.Msol; # mass of the massive black hole

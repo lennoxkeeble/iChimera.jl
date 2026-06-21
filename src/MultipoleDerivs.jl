@@ -13,52 +13,24 @@ using ..HarmonicCoordDerivs
 @inline Current_quad_prefactor(q::Float64)::Float64 = η(q) * (1.0 - q) # there should be an overall minus sign ahead of Mijk, this minus sign is already absorbed in the expressions below
 @inline Current_oct_prefactor(q::Float64)::Float64 = η(q) * (1.0 + q)
 
-function compute_SF_moments!(q::Float64, Mij5::MMatrix{3, 3, Float64, 9}, Mij6::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mij8::MMatrix{3, 3, Float64, 9}, dxmMij5::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMij6::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMij7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk8::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, dxmMijk7::MArray{Tuple{3, 3, 3, 3}, Float64, 4, 81}, Sij5::MMatrix{3, 3, Float64, 9}, Sij6::MMatrix{3, 3, Float64, 9}, dxmSij5::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, x::MVector{3, Float64}, dx::MVector{3, Float64}, d2x::MVector{3, Float64}, d3x::MVector{3, Float64}, d4x::MVector{3, Float64}, d5x::MVector{3, Float64}, d6x::MVector{3, Float64}, d7x::MVector{3, Float64}, d8x::MVector{3, Float64}, d9x::MVector{3, Float64}, OnePN::Float64, TwoPN::Float64, TwoPointFivePN::Float64)
-    if OnePN != 0.0 && OnePN != 1.0
-        error("OnePN must be either 0.0 or 1.0")
-    end
-
-    if TwoPN != 0.0 && TwoPN != 1.0
-        error("TwoPN must be either 0.0 or 1.0")
-    end
-
-    if TwoPointFivePN != 0.0 && TwoPointFivePN != 1.0
-        error("TwoPointFivePN must be either 0.0 or 1.0")
-    end
-
+function compute_SF_moments!(q::Float64, Mij5::MMatrix{3, 3, Float64, 9}, Mij6::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mij8::MMatrix{3, 3, Float64, 9}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk8::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Sij5::MMatrix{3, 3, Float64, 9}, Sij6::MMatrix{3, 3, Float64, 9}, x::MVector{3, Float64}, dx::MVector{3, Float64}, d2x::MVector{3, Float64}, d3x::MVector{3, Float64}, d4x::MVector{3, Float64}, d5x::MVector{3, Float64}, d6x::MVector{3, Float64}, d7x::MVector{3, Float64}, d8x::MVector{3, Float64}, d9x::MVector{3, Float64})
     # compute necessary auxiliary quantities
     m = 1.0 + q;
     ν = q / ((1+q)^2);
 
-    # ChimeraMultipoles.SijDerivs.Sij2(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, m, ν)
-    # ChimeraMultipoles.MijkDerivs.Mijk3(i, j, k, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, m, ν)
-    # ChimeraMultipoles.MijDerivs.Mij2(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, TwoPointFivePN, m, ν)
-    
-
     @inbounds Threads.@threads for (i,j) in collect(Iterators.product(1:3, 1:3))
-        Mij5[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij5(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, TwoPointFivePN, m, ν)
-        Mij6[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij6(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, TwoPointFivePN, m, ν)
-        Mij7[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij7(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, TwoPointFivePN, m, ν)
-        Mij8[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij8(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, TwoPointFivePN, m, ν)
+        Mij5[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij5(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
+        Mij6[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij6(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
+        Mij7[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij7(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
+        Mij8[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij8(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
         
-        Sij5[i,j] = Current_quad_prefactor(q) * ChimeraMultipoles.SijDerivs.Sij5(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, m, ν)
-        Sij6[i,j] = Current_quad_prefactor(q) * ChimeraMultipoles.SijDerivs.Sij6(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, m, ν)
+        Sij5[i,j] = Current_quad_prefactor(q) * ChimeraMultipoles.SijDerivs.Sij5(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
+        Sij6[i,j] = Current_quad_prefactor(q) * ChimeraMultipoles.SijDerivs.Sij6(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
 
 
         for k in 1:3
-            Mijk7[i,j,k] = Mass_oct_prefactor(q) * ChimeraMultipoles.MijkDerivs.Mijk7(i, j, k, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, m, ν)
-            Mijk8[i,j,k] = Mass_oct_prefactor(q) * ChimeraMultipoles.MijkDerivs.Mijk8(i, j, k, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, m, ν)
-
-            dxmMij5[i,j,k] = Mass_quad_prefactor(q) * ChimeraMultipoles.dxMijDerivs.dxkMij5(i, j, k, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, TwoPointFivePN, m, ν)
-            dxmMij6[i,j,k] = Mass_quad_prefactor(q) * ChimeraMultipoles.dxMijDerivs.dxkMij6(i, j, k, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, TwoPointFivePN, m, ν)
-            dxmMij7[i,j,k] = Mass_quad_prefactor(q) * ChimeraMultipoles.dxMijDerivs.dxkMij7(i, j, k, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, TwoPointFivePN, m, ν)
-
-
-            dxmSij5[i,j,k] = Current_quad_prefactor(q) * ChimeraMultipoles.dxSijDerivs.dxkSij5(i, j, k, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, m, ν)
-
-            for l = 1:3
-                dxmMijk7[i,j,k,l] = Mass_oct_prefactor(q) * ChimeraMultipoles.dxMijkDerivs.dxlMijk7(i, j, k, l, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, m, ν)
-            end
+            Mijk7[i,j,k] = Mass_oct_prefactor(q) * ChimeraMultipoles.MijkDerivs.Mijk7(i, j, k, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
+            Mijk8[i,j,k] = Mass_oct_prefactor(q) * ChimeraMultipoles.MijkDerivs.Mijk8(i, j, k, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
         end
     end
 end

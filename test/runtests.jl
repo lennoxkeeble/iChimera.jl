@@ -1,7 +1,6 @@
 using iChimera
 using Test
 using StaticArrays
-using MAT
 
 ###### TEST HIGH-ORDER DERIVATIVES WRT BL TIME ######
 dx_dt =  zeros(3);
@@ -235,50 +234,21 @@ Mij5 = @MArray zeros(3, 3)
 Mij6 = @MArray zeros(3, 3)
 Mij7 = @MArray zeros(3, 3)
 Mij8 = @MArray zeros(3, 3)
-dxmMij5 = @MArray zeros(3, 3, 3)
-dxmMij6 = @MArray zeros(3, 3, 3)
-dxmMij7 = @MArray zeros(3, 3, 3)
 
 Mijk7 = @MArray zeros(3, 3, 3)
 Mijk8 = @MArray zeros(3, 3, 3)
-dxmMijk7 = @MArray zeros(3, 3, 3, 3)
 
 Sij5 = @MArray zeros(3, 3)
 Sij6 = @MArray zeros(3, 3)
-dxmSij5 = @MArray zeros(3, 3, 3)
 
-OnePN, TwoPN, TwoPointFivePN = 1.0, 1.0, 1.0;
-iChimera.MultipoleDerivs.compute_SF_moments!(q, Mij5, Mij6, Mij7, Mij8, dxmMij5, dxmMij6, dxmMij7, Mijk7, Mijk8, dxmMijk7, Sij5, Sij6, dxmSij5, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, OnePN, TwoPN, TwoPointFivePN)
+iChimera.MultipoleDerivs.compute_SF_moments!(q, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x)
 
 Virr = @MVector zeros(3)
 ∂Vrr_∂a = @MVector zeros(3)
 ∂Virr_∂t = @MVector zeros(3)
 ∂Virr_∂a = @MArray zeros(3, 3)
 
-v2power = 0;
-Vrr, ∂Vrr_∂t = iChimera.RRPotentials.compute_RR_potentials!(Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a, x, dx, d2x, Mij5, Mij6, Mij7, Mij8, dxmMij5, dxmMij6, dxmMij7, Mijk7, Mijk8, dxmMijk7, Sij5, Sij6, dxmSij5, v2power; rr_derivative_model=:legacy_worldline);
-
-# load results from explicit MMA computation
-function get_mata_arr(fname::String)
-    file = matopen("./test/MMA/"*fname*".mat")
-    arr_julia = read(file, "Expression1")  # variable name must match
-    close(file)
-    return arr_julia
-end
-
-Vrr_MMA = get_mata_arr("Vrr");
-dtVrr_MMA = get_mata_arr("dtVrr");
-dxVrr_MMA = get_mata_arr("dxVrr");
-Virr_MMA = get_mata_arr("Virr");
-dtVirr_MMA = get_mata_arr("dtVirr");
-dxVirr_MMA = get_mata_arr("dxVirr");
-
-@test Vrr ≈ Vrr_MMA
-@test ∂Vrr_∂t ≈ dtVrr_MMA
-@test ∂Vrr_∂a ≈ dxVrr_MMA
-@test Virr ≈ Virr_MMA
-@test ∂Virr_∂t ≈ dtVirr_MMA
-@test ∂Virr_∂a ≈ dxVirr_MMA
+Vrr, ∂Vrr_∂t = iChimera.RRPotentials.compute_RR_potentials!(Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a, x, Mij5, Mij6, Mij7, Mij8, Mijk7, Mijk8, Sij5, Sij6);
 
 ###### TESTING LOW ORDER TIME DERIVATIVES OF MULTIPOLE MOMENTS DONE BY HAND ######
 δ(i, j) = i == j ? 1 : 0
@@ -463,27 +433,3 @@ iChimera.SelfAccelerationCartesian.aRRα(aSF_H, aSF_BL, xH, v, vH, xBL, rH, a, V
 @testset "iChimera.jl" begin
     # Write your tests here.
 end
-
-include("test_harmonic_rr_acceleration.jl")
-include("test_rr_derivative_model.jl")
-
-
-include("/Users/lennoxkeeble/KerrMetricDedoner.jl")
-
-xH = [5.0, 10.0, 15.0]; a = 0.5;
-g_μν = iChimera.HarmonicCoords.g_μν_H(xH, a)
-gμν = iChimera.HarmonicCoords.gμν_H(xH, a)
-
-m = 1.0
-# they use the + - - -  signature
-g_μν_2 = -KerrMetricDeDonder.get_metric_components(xH..., m, a)
-gμν_2 = -KerrMetricDeDonder.get_inverse_metric_components(xH..., m, a)
-
-g_μν ≈ g_μν_2
-gμν ≈ gμν_2
-
-gμν - gμν_2
-
-g_μν * gμν
-
-gμν_2 * g_μν_2

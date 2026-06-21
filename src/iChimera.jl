@@ -32,9 +32,6 @@ mutable struct EMRI
     lmax_mass_waveform::Int64 # maximum mass-type multipole moment l mode to include in the waveform computation with 2 ≤ lmax ≤ 4
     lmax_current_waveform::Int64 # maximum current-type multipole moment l mode to include in the waveform computation with 1 ≤ lmax ≤ 3 (lmax = 1 excludes any current-type moment and only up to l=3 included at this time)
     coordinates::String # coordinate system for the self-force computation: "harmonic" or "cartesian"
-    OnePN::Float64 # 1PN correction to the mass quadrupole moment
-    TwoPN::Float64 # 2PN correction to the mass quadrupole moment
-    TwoPointFivePN::Float64 # 2.5PN correction to the mass quadrupole moment
     psi0::Float64 # (initial condition) intial radial angle variable
     chi0::Float64 # (initial condition) initial polar angle variable
     phi0::Float64 # (initial condition) initial azimuthal angle variable
@@ -58,7 +55,7 @@ mutable struct EMRI
     save_fluxes::Bool # save fluxes
     save_gamma::Bool # save gamma factor
     # checks to make sure that the parameters are valid
-    EMRI(a, p, e, inclination, inclination_type, θmin, sign_Lz, mass_ratio, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, OnePN, TwoPN, TwoPointFivePN, psi0, chi0, phi0, frame, ThetaS,
+    EMRI(a, p, e, inclination, inclination_type, θmin, sign_Lz, mass_ratio, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, psi0, chi0, phi0, frame, ThetaS,
         PhiS, ThetaK, PhiK, ThetaObs, PhiObs, dt_save, path, T_secs, M, reltol, abstol, compute_SF_frac, save_every, save_traj, save_constants, save_fluxes, save_gamma) = begin
     if a < 0.0 || a > 1.0
         error("Spin parameter 'a' must be between 0 and 1.")
@@ -86,12 +83,6 @@ mutable struct EMRI
         error("Maximum mode 'lmax_current_waveform' must be between 1 and 3.")
     elseif coordinates != "harmonic" && coordinates != "cartesian"
         error("Coordinate system must be either 'harmonic' or 'cartesian'.")
-    elseif OnePN != 0.0 && OnePN != 1.0
-        error("1PN correction 'OnePN' must be either 0.0 (off) or 1.0 (on).")
-    elseif TwoPN != 0.0 && TwoPN != 1.0
-        error("2PN correction 'TwoPN' must be either 0.0 (off) or 1.0 (on).")
-    elseif TwoPointFivePN != 0.0 && TwoPointFivePN != 1.0
-        error("2.5PN correction 'TwoPointFivePN' must be either 0.0 (off) or 1.0 (on).")
     elseif frame != "SSB" && frame != "Source"
         error("Waveform frame 'frame' must be either 'SSB' or 'Source'.")
     elseif ThetaS < 0.0 || ThetaS > 180.0
@@ -122,7 +113,7 @@ mutable struct EMRI
         error("Save every 'save_every' must be positive.")
     else
         new(a, p, e, inclination, inclination_type, θmin, 
-        sign_Lz, mass_ratio, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, OnePN, TwoPN, TwoPointFivePN, psi0, chi0, phi0, frame, ThetaS, PhiS, ThetaK, PhiK, ThetaObs, PhiObs, dt_save, path, T_secs, M, reltol, abstol, compute_SF_frac, save_every, save_traj, save_constants, save_fluxes, save_gamma)
+        sign_Lz, mass_ratio, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, psi0, chi0, phi0, frame, ThetaS, PhiS, ThetaK, PhiK, ThetaObs, PhiObs, dt_save, path, T_secs, M, reltol, abstol, compute_SF_frac, save_every, save_traj, save_constants, save_fluxes, save_gamma)
     end
     end
 end
@@ -152,9 +143,6 @@ function EMRI(
     lmax_mass_waveform::Int64,
     lmax_current_waveform::Int64,
     coordinates::String,
-    OnePN::Float64,
-    TwoPN::Float64,
-    TwoPointFivePN::Float64,
     psi0::Float64,
     chi0::Float64,
     phi0::Float64,
@@ -202,12 +190,6 @@ function EMRI(
         error("Maximum mode 'lmax_current_waveform' must be between 1 and 3.")
     elseif coordinates != "harmonic" && coordinates != "cartesian"
         error("Coordinate system must be either 'harmonic' or 'cartesian'.")
-    elseif OnePN != 0.0 && OnePN != 1.0
-        error("1PN correction 'OnePN' must be either 0.0 (off) or 1.0 (on).")
-    elseif TwoPN != 0.0 && TwoPN != 1.0
-        error("2PN correction 'TwoPN' must be either 0.0 (off) or 1.0 (on).")
-    elseif TwoPointFivePN != 0.0 && TwoPointFivePN != 1.0
-        error("2.5PN correction 'TwoPointFivePN' must be either 0.0 (off) or 1.0 (on).")
     elseif frame != "SSB" && frame != "Source"
         error("Waveform frame 'frame' must be either 'SSB' or 'Source'.")
     elseif ThetaS < 0.0 || ThetaS > 180.0
@@ -238,11 +220,11 @@ function EMRI(
         error("Save every 'save_every' must be positive.")
     end
     theta_min = compute_theta_min(a, p, e, inclination, inclination_type, sign_Lz)
-    return EMRI(a, p, e, inclination, inclination_type, theta_min, sign_Lz, mass_ratio, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, OnePN, TwoPN, TwoPointFivePN, psi0, chi0, phi0, frame, ThetaS,
+    return EMRI(a, p, e, inclination, inclination_type, theta_min, sign_Lz, mass_ratio, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, psi0, chi0, phi0, frame, ThetaS,
         PhiS, ThetaK, PhiK, ThetaObs, PhiObs, dt_save, path, T_secs, M, reltol, abstol, compute_SF_frac, save_every, save_traj, save_constants, save_fluxes, save_gamma)
 end
 
-function compute_inspiral(emri; JIT::Bool = false, rr_model::Union{Symbol, AbstractString}=:chimera, rr_derivative_model::Union{Symbol, AbstractString}=:partial_field)
+function compute_inspiral(emri; JIT::Bool = false)
     a = emri.a
     p = emri.p
     e = emri.e
@@ -279,37 +261,37 @@ function compute_inspiral(emri; JIT::Bool = false, rr_model::Union{Symbol, Abstr
         compute_fluxes = compute_SF_frac * minimum(@. 2π /Ω[2:3])
     end
 
-    Inspiral.compute_inspiral(emri.a, emri.p, emri.e, emri.θmin, emri.sign_Lz, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, compute_fluxes, t_max_M, dt_save_M, emri.save_every, emri.reltol, emri.abstol, emri.OnePN, emri.TwoPN, emri.TwoPointFivePN, emri.coordinates; data_path=emri.path, JIT=JIT, lmax_mass_fluxes=emri.lmax_mass_fluxes, lmax_current_fluxes=emri.lmax_current_fluxes, save_traj=emri.save_traj, save_constants=emri.save_constants, save_fluxes=emri.save_fluxes, save_gamma=emri.save_gamma, rr_model=rr_model, rr_derivative_model=rr_derivative_model)
+    Inspiral.compute_inspiral(emri.a, emri.p, emri.e, emri.θmin, emri.sign_Lz, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, compute_fluxes, t_max_M, dt_save_M, emri.save_every, emri.reltol, emri.abstol, emri.coordinates; data_path=emri.path, JIT=JIT, lmax_mass_fluxes=emri.lmax_mass_fluxes, lmax_current_fluxes=emri.lmax_current_fluxes, save_traj=emri.save_traj, save_constants=emri.save_constants, save_fluxes=emri.save_fluxes, save_gamma=emri.save_gamma)
 end
 
-function compute_waveform(emri; rr_model::Union{Symbol, AbstractString}=:chimera)
+function compute_waveform(emri)
     if emri.frame == "SSB"
-        Inspiral.compute_waveform(obs_distance, emri.ThetaS, emri.PhiS, emri.ThetaK, emri.PhiK, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path; rr_model=rr_model);
+        Inspiral.compute_waveform(obs_distance, emri.ThetaS, emri.PhiS, emri.ThetaK, emri.PhiK, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path);
     elseif emri.frame == "Source"
-        Inspiral.compute_waveform(obs_distance, emri.ThetaObs, emri.PhiObs, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path; rr_model=rr_model);
+        Inspiral.compute_waveform(obs_distance, emri.ThetaObs, emri.PhiObs, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path);
     end
 end
 
-function load_trajectory(emri; rr_model::Union{Symbol, AbstractString}=:chimera)
-    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path; rr_model=rr_model)
+function load_trajectory(emri)
+    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path)
     return Inspiral.load_trajectory(fname)
 end
 
-function load_constants_of_motion(emri; rr_model::Union{Symbol, AbstractString}=:chimera)
-    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path; rr_model=rr_model)
+function load_constants_of_motion(emri)
+    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path)
     return Inspiral.load_constants_of_motion(fname)
 end
 
-function load_fluxes(emri; rr_model::Union{Symbol, AbstractString}=:chimera)
-    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path; rr_model=rr_model)
+function load_fluxes(emri)
+    fname = Inspiral.solution_fname(emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.coordinates, emri.path)
     return Inspiral.load_fluxes(fname)
 end
 
-function load_waveform(emri; rr_model::Union{Symbol, AbstractString}=:chimera)
+function load_waveform(emri)
     if emri.frame == "SSB"
-        return Inspiral.load_waveform(obs_distance, emri.ThetaS, emri.PhiS, emri.ThetaK, emri.PhiK, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path; rr_model=rr_model);
+        return Inspiral.load_waveform(obs_distance, emri.ThetaS, emri.PhiS, emri.ThetaK, emri.PhiK, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path);
     elseif emri.frame == "Source"
-        return Inspiral.load_waveform(obs_distance, emri.ThetaObs, emri.PhiObs, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path; rr_model=rr_model);
+        return Inspiral.load_waveform(obs_distance, emri.ThetaObs, emri.PhiObs, emri.a, emri.p, emri.e, emri.θmin, emri.mass_ratio, emri.psi0, emri.chi0, emri.phi0, emri.lmax_mass_fluxes, emri.lmax_current_fluxes, emri.lmax_mass_waveform, emri.lmax_current_waveform, emri.coordinates, emri.path);
     end
 end
 
@@ -353,10 +335,6 @@ end
     lmax_mass_waveform = 4 # maximum mass-type multipole moment l mode to include in the waveform computation with 2 ≤ lmax ≤ 4 (mass quadrupole, octupole, and hexadecapole)
     lmax_current_waveform = 3 # maximum current-type multipole moment l mode to include in the waveform computation with 1 ≤ lmax ≤ 3 (lmax = 1 excludes any current-type moment and only current quadrupole and octupole included at this time)
 
-    OnePN = 1.0
-    TwoPN = 1.0
-    TwoPointFivePN = 1.0
-
     coordinates = "cartesian";
 
     # data saving options
@@ -388,7 +366,7 @@ end
     # precompile mass quadrupole calls
 
     @compile_workload begin
-        emri = iChimera.EMRI(a, p, e, inclination, inclination_type, sign_Lz, mass_ratio, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, OnePN, TwoPN, TwoPointFivePN, psi0, chi0, phi0, frame, ThetaS, PhiS, ThetaK, PhiK, ThetaObs, PhiObs, dt_save, data_path, t_max_secs, Mass_MBH, reltol, abstol, compute_SF_frac, save_every, save_traj, save_constants, save_fluxes, save_gamma);
+        emri = iChimera.EMRI(a, p, e, inclination, inclination_type, sign_Lz, mass_ratio, lmax_mass_fluxes, lmax_current_fluxes, lmax_mass_waveform, lmax_current_waveform, coordinates, psi0, chi0, phi0, frame, ThetaS, PhiS, ThetaK, PhiK, ThetaObs, PhiObs, dt_save, data_path, t_max_secs, Mass_MBH, reltol, abstol, compute_SF_frac, save_every, save_traj, save_constants, save_fluxes, save_gamma);
         @time iChimera.compute_inspiral(emri; JIT = true);
     end
 end
