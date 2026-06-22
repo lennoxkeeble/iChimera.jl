@@ -3,8 +3,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/lennoxkeeble/iChimera/blob/main/LICENSE)
 ![GitHub last commit](https://img.shields.io/github/last-commit/lennoxkeeble/iChimera)
 
-[Code no longer actively maintained]
-
 Julia code which computes gravitational waveforms of extreme-mass-ratio inspirals (EMRIs) based on the "Chimera": a local kludge scheme introduced in <a href="https://arxiv.org/abs/1109.0572">Sopuerta & Yunes, 2011</a>. This implementation modifies the treatment of high-order derivatives by computing them analytically, allowing for computational speedup and improved accuracy. Example usage of the code is provided in the examples folder.
 
 ## Authors ##
