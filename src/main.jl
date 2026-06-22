@@ -27,6 +27,7 @@ include("FourierFitGSL.jl");
 include("ParameterizedDerivs.jl");
 include("CartesianDerivs.jl");
 include("CoordinateDerivs.jl");
+include("ChimeraMultipoles.jl");
 include("MultipoleDerivs.jl");
 include("RRPotentials.jl");
 include("SelfAccelerationCartesian.jl");

@@ -1,5 +1,5 @@
 module MultipoleDerivs
-using ChimeraMultipoles
+using ..ChimeraMultipoles
 using StaticArrays
 using ..SymmetricTensors
 using ..CoordinateDerivs

@@ -6,7 +6,6 @@ version = "1.0.0-DEV"
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-ChimeraMultipoles = "b4a4ba4a-14dc-46a9-b63b-c0c44dc7c6da"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 Elliptic = "b305315f-e792-5b7a-8f41-49f472929428"
