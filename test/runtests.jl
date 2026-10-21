@@ -340,7 +340,7 @@ vH = @MArray zeros(3);
 aH = @MArray zeros(3);
 
 a = 0.5; e = 0.4; θmin = π/6; sign_Lz = 1;
-p_vals = [1.0e1, 1.0e2, 500.0]
+p_vals = [1.0e1, 1.0e2, 150.0]
 print_errors = true
 
 for p in p_vals
