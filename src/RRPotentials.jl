@@ -27,7 +27,9 @@ function compute_RR_potentials!(
     Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27},
     Mijk8::MArray{Tuple{3, 3, 3}, Float64, 3, 27},
     Skl5::MMatrix{3, 3, Float64, 9},
-    Skl6::MMatrix{3, 3, Float64, 9},
+    Skl6::MMatrix{3, 3, Float64, 9};
+    ΔMij5::Union{Nothing, MMatrix{3, 3, Float64, 9}} = nothing,
+    ΔMij6::Union{Nothing, MMatrix{3, 3, Float64, 9}} = nothing,
 )
     Vrr_value = Vrr(x, Mij5, Mij7, Mijk7)
     ∂Vrr_∂t_value = ∂Vrr_∂t(x, Mij6, Mij8, Mijk8)
@@ -41,7 +43,49 @@ function compute_RR_potentials!(
         end
     end
 
+    # optional 1.5pn tail (blanchet 1997, eq. 4.33a): a burke-thorne term with M^(5), M^(6) replaced by the tail integrals
+    # ΔMij5, ΔMij6 (see tail_weights); V_i is unchanged at this order
+    (ΔMij5 === nothing) == (ΔMij6 === nothing) || throw(ArgumentError("ΔMij5 and ΔMij6 must be given together"))
+    if ΔMij5 !== nothing
+        zero_ij = zero(MMatrix{3, 3, Float64, 9})
+        zero_ijk = zero(MArray{Tuple{3, 3, 3}, Float64, 3, 27})
+        Vrr_value += Vrr(x, ΔMij5, zero_ij, zero_ijk)
+        ∂Vrr_∂t_value += ∂Vrr_∂t(x, ΔMij6, zero_ij, zero_ijk)
+        for i in 1:3
+            ∂Vrr_∂a[i] += ∂Vrr_∂xm(i, x, ΔMij5, zero_ij, zero_ijk)
+        end
+    end
+
     return Vrr_value, ∂Vrr_∂t_value
+end
+
+# quadrature weights for the 1.5pn tail integral of blanchet 1997, eq. 4.33a,
+#   ΔM(t_n) = 4M ∫_0^∞ dλ ln(λ/2) f(t_n - λ) ≈ Σ_{j=0}^{n_past} W[j+1] f(t_n - j h),
+# with f = M^(7) for ΔMij5 and f = M^(8) for ΔMij6, sampled uniformly with step h (time scale of the logarithm: 1 in units of M).
+# the past is damped by exp(-ε λ) for each ε in ε_values and the results are extrapolated polynomially to ε = 0, which defines
+# the integral for a source that oscillates indefinitely (e.g. a geodesic continued into the past). n_past must be even and
+# exp(-minimum(ε_values) n_past h) negligible. quadrature: ln(λ/2) times a quadratic integrated exactly on [0, 2h], composite
+# simpson rule on [2h, n_past h].
+function tail_weights(h::Float64, n_past::Int64, ε_values::AbstractVector{Float64}; M::Float64 = 1.0)::Vector{Float64}
+    (iseven(n_past) && n_past >= 2) || throw(ArgumentError("n_past must be even and at least 2"))
+    λ = h .* (0:n_past)
+    base = zeros(n_past + 1)
+    # ∫_0^2 ℓ_k(u) du and ∫_0^2 ln(u) ℓ_k(u) du for the quadratic lagrange basis on u = 0, 1, 2
+    simpson = (1 / 3, 4 / 3, 1 / 3)
+    log_moments = (log(2) / 3 - 17 / 18, 4 * log(2) / 3 - 10 / 9, log(2) / 3 + 1 / 18)
+    for k in 1:3
+        base[k] += h * (log(h / 2) * simpson[k] + log_moments[k])
+    end
+    for j in 2:n_past
+        w = (j == 2 || j == n_past) ? 1 / 3 : (isodd(j) ? 4 / 3 : 2 / 3)
+        base[j + 1] += h * w * log(λ[j + 1] / 2)
+    end
+    W = zeros(n_past + 1)
+    for (k, εk) in enumerate(ε_values)
+        c = prod((-εl / (εk - εl) for (l, εl) in enumerate(ε_values) if l != k); init = 1.0)
+        W .+= c .* exp.(-εk .* λ) .* base
+    end
+    return 4.0 * M .* W
 end
 
 function Vrr(

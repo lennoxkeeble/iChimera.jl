@@ -430,6 +430,17 @@ aSF_H = @MVector zeros(4)
 iChimera.SelfAccelerationHarmonic.aRRα(aSF_H, aSF_BL, xH, v, vH, xBL, rH, a, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a)
 iChimera.SelfAccelerationCartesian.aRRα(aSF_H, aSF_BL, xH, v, vH, xBL, rH, a, Vrr, ∂Vrr_∂t, Virr, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a)
 
+###### TEST THE 1.5PN TAIL WEIGHTS AGAINST THE EXACT INTEGRAL FOR A SINGLE FREQUENCY ######
+# abel-regularised: 4 ∫_0^∞ ln(λ/2) cos(ω (t - λ)) dλ = 4 Re[e^{iωt} (-γ_E - ln(2ω) - iπ/2) / (iω)]
+let ω = 0.6, h = (2π / 0.6) / 200, ε_values = collect(0.6 * 0.25 ./ 2.0 .^ (0:3))
+    n_past = 2 * ceil(Int, 30 / minimum(ε_values) / h / 2)
+    W = iChimera.RRPotentials.tail_weights(h, n_past, ε_values)
+    for t in (0.0, π / (2ω))
+        exact = 4 * real(cis(ω * t) * (-Base.MathConstants.γ - log(2ω) - im * π / 2) / (im * ω))
+        @test isapprox(sum(W[j + 1] * cos(ω * (t - j * h)) for j in 0:n_past), exact; rtol = 5e-4)
+    end
+end
+
 @testset "iChimera.jl" begin
     # Write your tests here.
 end
