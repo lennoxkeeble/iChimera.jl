@@ -60,7 +60,7 @@ function Evolve_BL(Δt::Float64, a::Float64, r::Float64, θ::Float64, ϕ::Float6
 
     # update L
     if e0==0.0 && θmin_0==π/2   # circular equatorial
-        ang_velocity = 1/(a + p * sqrt(p))
+        ang_velocity = 1/(a + p0 * sqrt(p0))
         dL_dt = dE_dt / ang_velocity    # page 10 first paragraph on right column
     else
         dL_dt = (Kerr.KerrMetric.g_μν(r, θ, ϕ, a, 1, 4) * aSF_BL[1] + Kerr.KerrMetric.g_μν(r, θ, ϕ, a, 4, 4) * aSF_BL[4])/Γ    # Eq. 31
