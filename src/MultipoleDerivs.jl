@@ -8,9 +8,9 @@ using ..HarmonicCoordDerivs
 # define mass-ratio parameter
 @inline η(q::Float64)::Float64 = q / ((1+q)^2)   # q = SCO / MBH (mass ratio < 1)
 @inline Mass_quad_prefactor(q::Float64)::Float64 = η(q) * (1.0 + q)
-@inline Mass_oct_prefactor(q::Float64)::Float64 = η(q) * (1.0 - q) # there should be an overall minus sign ahead of Mijk, this minus sign is already absorbed in the expressions below
+@inline Mass_oct_prefactor(q::Float64)::Float64 = -η(q) * (1.0 - q) # the expressions in ChimeraMultipoles/MijkDerivs.jl carry an overall factor -1; this minus sign cancels it, so that M_ijk = +η δm x^<ijk> with x the position of the SCO relative to the MBH (Sopuerta & Yunes 2011, Eq. 48)
 @inline Mass_hex_prefactor(q::Float64)::Float64 = η(q) * (1.0 + q)
-@inline Current_quad_prefactor(q::Float64)::Float64 = η(q) * (1.0 - q) # there should be an overall minus sign ahead of Mijk, this minus sign is already absorbed in the expressions below
+@inline Current_quad_prefactor(q::Float64)::Float64 = -η(q) * (1.0 - q) # the expressions in ChimeraMultipoles/SijDerivs.jl carry an overall factor -1; this minus sign cancels it, so that S_ij = +η δm ε_kl<i x_j> x^k v^l (Sopuerta & Yunes 2011, Eq. 49)
 @inline Current_oct_prefactor(q::Float64)::Float64 = η(q) * (1.0 + q)
 
 function compute_SF_moments!(q::Float64, Mij5::MMatrix{3, 3, Float64, 9}, Mij6::MMatrix{3, 3, Float64, 9}, Mij7::MMatrix{3, 3, Float64, 9}, Mij8::MMatrix{3, 3, Float64, 9}, Mijk7::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Mijk8::MArray{Tuple{3, 3, 3}, Float64, 3, 27}, Sij5::MMatrix{3, 3, Float64, 9}, Sij6::MMatrix{3, 3, Float64, 9}, x::MVector{3, Float64}, dx::MVector{3, Float64}, d2x::MVector{3, Float64}, d3x::MVector{3, Float64}, d4x::MVector{3, Float64}, d5x::MVector{3, Float64}, d6x::MVector{3, Float64}, d7x::MVector{3, Float64}, d8x::MVector{3, Float64}, d9x::MVector{3, Float64})
@@ -18,11 +18,12 @@ function compute_SF_moments!(q::Float64, Mij5::MMatrix{3, 3, Float64, 9}, Mij6::
     m = 1.0 + q;
     ν = q / ((1+q)^2);
 
+    # mass quadrupole at 1PN accuracy (OnePN = 1, TwoPN = 0, TwoPointFivePN = 0), as required by the 1PN radiation-reaction potentials (Blanchet 1997, Eqs. 3.6a and 3.7)
     @inbounds Threads.@threads for (i,j) in collect(Iterators.product(1:3, 1:3))
-        Mij5[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij5(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
-        Mij6[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij6(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
-        Mij7[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij7(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
-        Mij8[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij8(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
+        Mij5[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij5(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, 1.0, 0.0, 0.0, m, ν)
+        Mij6[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij6(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, 1.0, 0.0, 0.0, m, ν)
+        Mij7[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij7(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, 1.0, 0.0, 0.0, m, ν)
+        Mij8[i,j] = Mass_quad_prefactor(q) * ChimeraMultipoles.MijDerivs.Mij8(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, 1.0, 0.0, 0.0, m, ν)
         
         Sij5[i,j] = Current_quad_prefactor(q) * ChimeraMultipoles.SijDerivs.Sij5(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)
         Sij6[i,j] = Current_quad_prefactor(q) * ChimeraMultipoles.SijDerivs.Sij6(i, j, x, dx, d2x, d3x, d4x, d5x, d6x, d7x, d8x, d9x, m, ν)

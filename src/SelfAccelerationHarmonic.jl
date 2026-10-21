@@ -117,10 +117,10 @@ P_αβ(vH::AbstractArray, xH::AbstractArray, a::Float64) =  ημν + K_μν(xH, 
 
 ### SELF-ACCELERATION PIECES ###
 # compute self-acceleration pieces. crucially ∂Virr_∂a = ∂_{a}V_{i}
-function A_RR(v::Float64, vH::AbstractArray, ∂Vrr_∂t::Float64, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64})
-    aRR = (1.0 - v^2) * ∂Vrr_∂t   # first term in Eq. A4
+function A_RR(v::Float64, vH::AbstractArray, ∂Vrr_∂t::Float64, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64}, Vrr::Float64=0.0, f::Float64=1.0, ∂f::AbstractVector{Float64}=SVector(0.0, 0.0, 0.0))
+    aRR = (f - v^2) * ∂Vrr_∂t   # first term in Eq. A4, with h_tt = 2 V f (see aRRα)
     @inbounds for i=1:3
-        aRR += 2.0 * vH[i] * ∂Vrr_∂a[i]   # second term Eq. A4
+        aRR += 2.0 * vH[i] * (f * ∂Vrr_∂a[i] + Vrr * ∂f[i])   # second term Eq. A4, with h_tt = 2 V f
         @inbounds for j=1:3
             aRR += -4.0 * vH[i] * vH[j] * ∂Virr_∂a[j, i]   # third term Eq. A4
         end
@@ -128,16 +128,16 @@ function A_RR(v::Float64, vH::AbstractArray, ∂Vrr_∂t::Float64, ∂Vrr_∂a::
     return aRR
 end
 
-function Ai_RR(v::Float64,  vH::AbstractArray, ∂Vrr_∂t::Float64, ∂Virr_∂t::MVector{3, Float64}, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64}, i::Int)
-    aiRR = -(1 + v^2) * ∂Vrr_∂a[i] + 2.0 * vH[i] * ∂Vrr_∂t - 4.0 * ∂Virr_∂t[i]    # first, second, and last term in Eq. A5
+function Ai_RR(v::Float64,  vH::AbstractArray, ∂Vrr_∂t::Float64, ∂Virr_∂t::MVector{3, Float64}, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64}, i::Int, Vrr::Float64=0.0, f::Float64=1.0, ∂f::AbstractVector{Float64}=SVector(0.0, 0.0, 0.0))
+    aiRR = -(f + v^2) * ∂Vrr_∂a[i] - Vrr * ∂f[i] + 2.0 * vH[i] * ∂Vrr_∂t - 4.0 * ∂Virr_∂t[i]    # first, second, and last term in Eq. A5, with h_tt = 2 V f
     @inbounds for j=1:3
         aiRR += 2.0 * vH[i] * vH[j] * ∂Vrr_∂a[j] - 4.0 * vH[j] * (∂Virr_∂a[i, j] - ∂Virr_∂a[j, i])    # third and fourth terms in Eq. A5
     end
     return aiRR
 end
 
-function A1_β(v::Float64, vH::AbstractArray, ∂Vrr_∂t::Float64, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂t::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64, 9})
-    return [i==1 ? A_RR(v, vH, ∂Vrr_∂t, ∂Vrr_∂a, ∂Virr_∂a) : Ai_RR(v, vH, ∂Vrr_∂t, ∂Virr_∂t, ∂Vrr_∂a, ∂Virr_∂a, i-1) for i = 1:4]
+function A1_β(v::Float64, vH::AbstractArray, ∂Vrr_∂t::Float64, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂t::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64, 9}, Vrr::Float64=0.0, f::Float64=1.0, ∂f::AbstractVector{Float64}=SVector(0.0, 0.0, 0.0))
+    return [i==1 ? A_RR(v, vH, ∂Vrr_∂t, ∂Vrr_∂a, ∂Virr_∂a, Vrr, f, ∂f) : Ai_RR(v, vH, ∂Vrr_∂t, ∂Virr_∂t, ∂Vrr_∂a, ∂Virr_∂a, i-1, Vrr, f, ∂f) for i = 1:4]
 end
 
 function B_RR(Qi::AbstractVector{Float64}, ∂K_∂xk::SVector{3, Float64})
@@ -226,7 +226,7 @@ function compute_BCD(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, r
 end
 
 # computes the four self-acceleration components A^{2}_{β} (Eqs. 62 - 63)
-function A2_β(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Float64, a::Float64, VRR::Float64, ViRR::MVector{3, Float64})
+function A2_β(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Float64, a::Float64, VRR::Float64, ViRR::MVector{3, Float64}, f::Float64=1.0)
     jBLH = HarmonicCoords.jBLH(xH, a)
     HessBLH = [HarmonicCoords.HessBLH(xH, rH, a, m) for m=1:3]
     ∂K_∂xk = @SVector [SelfAccelerationHarmonic.∂K_∂xk(xH, xBL, jBLH, HessBLH, a, j) for j=1:3];
@@ -245,7 +245,7 @@ function A2_β(xH::AbstractArray, vH::AbstractArray, xBL::AbstractArray, rH::Flo
     DRR = D_RR(vH, ∂Ki_∂xk, ∂Kij_∂xk, Q, Qi)
     DiRR = Di_RR(vH, ∂Ki_∂xk, ∂Kij_∂xk, Qi, Qij)
 
-    A2_t = (BRR + CRR + DRR) * VRR + dot((BiRR + CiRR + DiRR), ViRR)   # Eq. 62
+    A2_t = (BRR + CRR + DRR) * VRR * f + dot((BiRR + CiRR + DiRR), ViRR)   # Eq. 62, with h_tt = 2 V f
     A2_i = -2.0 * (BRR + CRR + DRR) * ViRR - (BiRR + CiRR + DiRR) * VRR / 2.0  # Eq. 63
 
     return vcat(A2_t, A2_i)
@@ -253,7 +253,11 @@ end
 
 # compute self-acceleration in harmonic coordinates and transform components back to BL
 function aRRα(aSF_H::AbstractVector{Float64}, aSF_BL::AbstractVector{Float64}, xH::AbstractVector{Float64}, v::Float64, vH::AbstractVector{Float64}, xBL::AbstractVector{Float64}, rH::Float64, a::Float64, Vrr::Float64, ∂Vrr_∂t::Float64, Virr::MVector{3, Float64}, ∂Vrr_∂a::MVector{3, Float64}, ∂Virr_∂t::MVector{3, Float64}, ∂Virr_∂a::MMatrix{3, 3, Float64, 9})
-    aSF_H[:] = -Γ(vH, xH, a)^2 * Pαβ(vH, xH, a) * (A1_β(v, vH, ∂Vrr_∂t, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a) + A2_β(xH, vH, xBL, rH, a, Vrr, Virr))
+    # h_tt = 2 V_RR f with f = 1 - 2M/r_H (M = 1): the cross term -4 U V_RR of g_00 = -1 + 2(U + V_RR) - 2(U + V_RR)^2, U = M/r_H
+    # (Blanchet 1997, Eqs. 3.1a and 3.2), which Sopuerta & Yunes (2011), Eqs. 41 and 53, omit. h_ti and h_ij are unchanged.
+    f = 1.0 - 2.0 / rH
+    ∂f = SVector(2.0 * xH[1] / rH^3, 2.0 * xH[2] / rH^3, 2.0 * xH[3] / rH^3)
+    aSF_H[:] = -Γ(vH, xH, a)^2 * Pαβ(vH, xH, a) * (A1_β(v, vH, ∂Vrr_∂t, ∂Vrr_∂a, ∂Virr_∂t, ∂Virr_∂a, Vrr, f, ∂f) + A2_β(xH, vH, xBL, rH, a, Vrr, Virr, f))
     aSF_BL[1] = aSF_H[1]
     aSF_BL[2:4] = HarmonicCoords.aHtoBL(xH, zeros(3), aSF_H[2:4], a)
 end
